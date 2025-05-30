@@ -1,0 +1,2 @@
+Project_Name,Asset_Last_Report,Asset_Tags,Asset_Details,Component_File_Name,Component_Line_Number,Vulnerabilities_ID,Vulnerabilities_Name,Vulnerabilities_CVE,Vulnerabilities_Technical_Severity,Vulnerabilities_Description,Vulnerabilities_Discovery_Time,Vulnerabilities_CWE,Vulnerabilities_Unique_Instance_ID,Solutions_Description,Solutions_Reference,Solutions_Reference_Link,,
+name,"Sep 24,20",Tag,details,componnnent name,310,1234,Buffer overflow,cve-1234,High,Description,01-Oct-19,CWE-123,123456,description,information,link,,

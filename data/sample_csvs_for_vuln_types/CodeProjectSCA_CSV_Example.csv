@@ -1,0 +1,2 @@
+Project_Name,Asset_Last_Report,Asset_Tags,Asset_Details,Libraries_Name,Libraries_Version,Vulnerabilities_ID,Vulnerabilities_Name,Vulnerabilities_CVE,Vulnerabilities_Technical_Severity,Vulnerabilities_Description,Vulnerabilities_Discovery_Time,Vulnerabilities_CWE,Vulnerabilities_Unique_Instance_ID,Solutions_Description,Solutions_Reference,Solutions_Reference_Link,,
+OpenSSL,"Sep 24,20",Tag,application type,library name,library version,1234,Buffer overflow,cve-238-9283,High,Description,01-Oct-19,CWE-476,123456,description,information,link,,

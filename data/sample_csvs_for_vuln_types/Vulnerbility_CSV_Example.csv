@@ -1,0 +1,2 @@
+Asset_Name,Vulnerability_Name,CVSS_Score,CVE,CWE,Description,First_Seen,Solution,Custom_Field1,Custom_Field2,Custom_Field3
+ProductionServer,"Ubuntu Security Notification for Python2.7, Python3.5, Python3.6, Python3.7 Vulnerabilities (USN-4127-1)",8.4,CVE-2019-10160,CWE-20,It was discovered that Python incorrectly handled certain pickle files.,"Oct 24, 2019",Vulnerability solution ,Value1,Value2,Value3
