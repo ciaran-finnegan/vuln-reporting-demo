@@ -20,11 +20,15 @@ This approach combines Supabase's excellent frontend integration with Django's p
 
 ## Risk Radar Full Feature Set
 
+> **Note:** This section describes the complete product vision for Risk Radar. Not all features are included in the MVP, but this provides context for future development and ensures the MVP is designed with extensibility in mind.
+
 ### Introduction
 Risk Radar is a comprehensive vulnerability management platform that consolidates security data from multiple sources, prioritises risks based on business context, and tracks remediation efforts. This section describes the full feature set to provide context for our MVP implementation.
 
 ### Connectors & Data Ingestion
 Risk Radar ingests data from existing tools (vulnerability scanners, SCA/SAST tools, cloud providers, ticketing systems, etc.) via "connectors". Once configured, a connector pulls assets and vulnerability findings into the platform. Risk Radar then correlates and consolidates this data (across tools and assets) to compute risk and remediation priority. Notably, Risk Radar provides a Nessus File Connector that accepts Tenable's .nessus XML reports (no direct Tenable API support). This connector lets users upload a .nessus scan file (max 300 MB, UTF-8) and automatically integrates its data into Risk Radar's views.
+
+> For practical field extraction and mapping logic, see [nessus_extractor.py extraction script](https://github.com/ciaran-finnegan/nessus-reporting-metrics-demo/blob/main/etl/extractors/nessus_extractor.py).
 
 ### Assets and Vulnerabilities Management
 All ingested data is modelled as assets and vulnerabilities (findings). Assets represent systems or entities and are classified by type:
@@ -88,6 +92,8 @@ The platform exposes a REST API (v1 and v2) for all operations, allowing program
 
 ## MVP Feature Subset
 
+> **Note:** This section lists the features that are in scope for the MVP demo. These are the minimum required to demonstrate value and should be fully implemented and tested. Anything not listed here is considered out of scope for the MVP.
+
 For this rapid MVP demo, we focus on a core subset that demonstrates value while remaining buildable in 2-3 days:
 
 ### 1. Tenable Nessus File Upload
@@ -117,6 +123,33 @@ For this rapid MVP demo, we focus on a core subset that demonstrates value while
 - Complex risk scoring algorithms (simplified for MVP)
 - SSO and advanced RBAC (using Django auth)
 - Real-time dashboards (using simple views)
+
+---
+
+## Feature Coverage Mapping: Full Product vs MVP
+
+| Feature Area                        | Full Product (Vision) | MVP (Demo) |
+|-------------------------------------|:---------------------:|:----------:|
+| Nessus File Import                  |           ✓           |     ✓      |
+| Other Connectors (SCA, Cloud, etc.) |           ✓           |     ✗      |
+| Asset Management (all types)        |           ✓           |     ✓      |
+| Vulnerability Management            |           ✓           |     ✓      |
+| Asset Tagging (manual)              |           ✓           |     ✓      |
+| Asset Tagging (dynamic/rules)       |           ✓           |     ✗      |
+| Business Groups                     |           ✓           |     ✓      |
+| Risk Scoring (advanced)             |           ✓           |  Simplified|
+| SLA Policies (per group/severity)   |           ✓           |     ✓      |
+| SLA Compliance Reporting            |           ✓           |     ✓      |
+| Remediation Campaigns (basic)       |           ✓           |     ✓      |
+| Remediation Campaigns (auto/ticket) |           ✓           |     ✗      |
+| Dashboard & Analytics               |           ✓           |  Basic/UI  |
+| Custom Reports/Export               |           ✓           |     ✓      |
+| REST API (full)                     |           ✓           |     ✓      |
+| SSO/Advanced RBAC                   |           ✓           | Django Auth|
+| Audit Logs                          |           ✓           |     ✗      |
+| Real-time Dashboards                |           ✓           |  Basic/UI  |
+
+> ✓ = Fully implemented; ✗ = Not in MVP; 'Simplified' or 'Basic/UI' = MVP has a basic or reduced version
 
 ---
 
@@ -417,7 +450,8 @@ def parse_nessus(request):
     file_url = f"{supabase_url}/storage/v1/object/public/nessus-files/{file_path}"
     
     # Parse and insert directly to Supabase DB
-    importer = NessusImporter()
+    integration_name = request.data.get('integration', 'Nessus')
+    importer = ScannerImporter(integration_name)
     stats = importer.import_from_url(file_url)
     
     return Response(stats)
@@ -573,9 +607,51 @@ CREATE TABLE campaign_finding (
     PRIMARY KEY (campaign_id, finding_id)
 );
 
--- Nessus Upload tracking
-CREATE TABLE nessus_upload (
+-- Scanner Integrations (for future extensibility)
+CREATE TABLE scanner_integration (
     id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,  -- 'Nessus', 'OpenVAS', 'Qualys', etc.
+    version VARCHAR(50) NULL,           -- Scanner version if relevant
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Field Mappings (configurable from Django admin)
+CREATE TABLE field_mapping (
+    id SERIAL PRIMARY KEY,
+    integration_id INTEGER NOT NULL REFERENCES scanner_integration(id) ON DELETE CASCADE,
+    source_field VARCHAR(200) NOT NULL,     -- XML path or field name from scanner
+    target_model VARCHAR(50) NOT NULL,      -- 'asset', 'vulnerability', 'finding'
+    target_field VARCHAR(100) NOT NULL,     -- 'name', 'ip_address', 'metadata.os', etc.
+    field_type VARCHAR(20) DEFAULT 'string' CHECK (field_type IN ('string', 'integer', 'decimal', 'boolean', 'json', 'datetime')),
+    is_required BOOLEAN DEFAULT FALSE,
+    default_value TEXT,
+    transformation_rule TEXT,               -- Python expression or function name for complex mappings
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0
+);
+
+CREATE INDEX idx_field_mapping_integration ON field_mapping(integration_id, target_model);
+CREATE INDEX idx_field_mapping_active ON field_mapping(is_active, target_model);
+
+-- Severity Mappings (scanner-specific severity translations)
+CREATE TABLE severity_mapping (
+    id SERIAL PRIMARY KEY,
+    integration_id INTEGER NOT NULL REFERENCES scanner_integration(id) ON DELETE CASCADE,
+    source_value VARCHAR(50) NOT NULL,     -- '0', '1', '2', '3', '4' for Nessus
+    target_value VARCHAR(20) NOT NULL,     -- 'Info', 'Low', 'Medium', 'High', 'Critical'
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE UNIQUE INDEX idx_severity_mapping_unique ON severity_mapping(integration_id, source_value, is_active) WHERE is_active = TRUE;
+
+-- File Upload tracking (generic for all scanner types)
+CREATE TABLE scanner_upload (
+    id SERIAL PRIMARY KEY,
+    integration_id INTEGER NOT NULL REFERENCES scanner_integration(id),
     filename VARCHAR(255) NOT NULL,
     file_size INTEGER,
     file_path TEXT,  -- Supabase Storage path
@@ -584,7 +660,8 @@ CREATE TABLE nessus_upload (
     uploaded_by UUID REFERENCES auth.users(id),
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
     error_message TEXT NULL,
-    stats JSONB DEFAULT '{}'
+    stats JSONB DEFAULT '{}',
+    processing_notes TEXT
 );
 ```
 
@@ -623,22 +700,24 @@ SELECT
     EXTRACT(days FROM (first_seen + (sla_days || ' days')::INTERVAL - NOW()))::INTEGER as days_remaining
 FROM policy_assignments;
 
--- MTTR (Mean Time To Remediate) View
+-- MTTR (Mean Time To Remediate) View with Date Filtering Support
 CREATE OR REPLACE VIEW mttr_summary AS
 SELECT 
     bg.name as business_group,
+    bg.id as business_group_id,
     v.severity,
     COUNT(f.id) as fixed_count,
     AVG(EXTRACT(days FROM (f.fixed_at - f.first_seen)))::DECIMAL(10,2) as avg_days_to_fix,
     MIN(EXTRACT(days FROM (f.fixed_at - f.first_seen)))::INTEGER as min_days,
-    MAX(EXTRACT(days FROM (f.fixed_at - f.first_seen)))::INTEGER as max_days
+    MAX(EXTRACT(days FROM (f.fixed_at - f.first_seen)))::INTEGER as max_days,
+    f.fixed_at::DATE as fix_date
 FROM finding f
 JOIN vulnerability v ON f.vulnerability_id = v.id
 JOIN asset a ON f.asset_id = a.id
 LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
 LEFT JOIN business_group bg ON abg.business_group_id = bg.id
 WHERE f.status = 'fixed' AND f.fixed_at IS NOT NULL
-GROUP BY bg.name, v.severity;
+GROUP BY bg.name, bg.id, v.severity, f.fixed_at::DATE;
 
 -- Average Daily Remediation View
 CREATE OR REPLACE VIEW daily_remediation_stats AS
@@ -747,6 +826,315 @@ BEGIN
     INSERT INTO mttr_history (snapshot_date, asset_type, severity, mttr_days, fixed_count)
     SELECT CURRENT_DATE, asset_type, severity, avg_days_to_fix, fixed_count
     FROM mttr_by_asset_type;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Enhanced Metrics Functions with Time Period and Trend Support
+
+-- Time period filter function
+CREATE OR REPLACE FUNCTION get_date_range(period TEXT)
+RETURNS TABLE(start_date DATE, end_date DATE) AS $$
+BEGIN
+    CASE period
+        WHEN '7d' THEN
+            RETURN QUERY SELECT (CURRENT_DATE - INTERVAL '7 days')::DATE, CURRENT_DATE;
+        WHEN '30d' THEN
+            RETURN QUERY SELECT (CURRENT_DATE - INTERVAL '30 days')::DATE, CURRENT_DATE;
+        WHEN '90d' THEN
+            RETURN QUERY SELECT (CURRENT_DATE - INTERVAL '90 days')::DATE, CURRENT_DATE;
+        WHEN '1y' THEN
+            RETURN QUERY SELECT (CURRENT_DATE - INTERVAL '1 year')::DATE, CURRENT_DATE;
+        WHEN 'all' THEN
+            RETURN QUERY SELECT '2020-01-01'::DATE, CURRENT_DATE;
+        ELSE
+            RETURN QUERY SELECT (CURRENT_DATE - INTERVAL '7 days')::DATE, CURRENT_DATE;
+    END CASE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- MTTR with time filtering and trend calculation
+CREATE OR REPLACE FUNCTION get_mttr_metrics(
+    time_period TEXT DEFAULT '7d',
+    business_group_ids INTEGER[] DEFAULT NULL,
+    asset_tag_names TEXT[] DEFAULT NULL
+)
+RETURNS TABLE(
+    metric_name TEXT,
+    current_value DECIMAL,
+    previous_value DECIMAL,
+    trend_percentage DECIMAL,
+    trend_direction TEXT,
+    business_group TEXT,
+    severity TEXT,
+    period_start DATE,
+    period_end DATE
+) AS $$
+DECLARE
+    current_start DATE;
+    current_end DATE;
+    prev_start DATE;
+    prev_end DATE;
+    period_days INTEGER;
+BEGIN
+    -- Get date ranges
+    SELECT start_date, end_date INTO current_start, current_end
+    FROM get_date_range(time_period);
+    
+    period_days := current_end - current_start;
+    prev_start := current_start - INTERVAL (period_days || ' days');
+    prev_end := current_start;
+    
+    RETURN QUERY
+    WITH current_period AS (
+        SELECT 
+            COALESCE(bg.name, 'No Group') as bg_name,
+            v.severity,
+            AVG(EXTRACT(days FROM (f.fixed_at - f.first_seen)))::DECIMAL(10,2) as mttr_current,
+            COUNT(f.id) as fixes_current
+        FROM finding f
+        JOIN vulnerability v ON f.vulnerability_id = v.id
+        JOIN asset a ON f.asset_id = a.id
+        LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+        LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+        LEFT JOIN asset_asset_tag aat ON a.id = aat.asset_id
+        LEFT JOIN asset_tag at ON aat.tag_id = at.id
+        WHERE f.status = 'fixed' 
+        AND f.fixed_at IS NOT NULL
+        AND f.fixed_at::DATE BETWEEN current_start AND current_end
+        AND (business_group_ids IS NULL OR bg.id = ANY(business_group_ids))
+        AND (asset_tag_names IS NULL OR at.name = ANY(asset_tag_names))
+        GROUP BY bg.name, v.severity
+    ),
+    previous_period AS (
+        SELECT 
+            COALESCE(bg.name, 'No Group') as bg_name,
+            v.severity,
+            AVG(EXTRACT(days FROM (f.fixed_at - f.first_seen)))::DECIMAL(10,2) as mttr_previous,
+            COUNT(f.id) as fixes_previous
+        FROM finding f
+        JOIN vulnerability v ON f.vulnerability_id = v.id
+        JOIN asset a ON f.asset_id = a.id
+        LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+        LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+        LEFT JOIN asset_asset_tag aat ON a.id = aat.asset_id
+        LEFT JOIN asset_tag at ON aat.tag_id = at.id
+        WHERE f.status = 'fixed' 
+        AND f.fixed_at IS NOT NULL
+        AND f.fixed_at::DATE BETWEEN prev_start AND prev_end
+        AND (business_group_ids IS NULL OR bg.id = ANY(business_group_ids))
+        AND (asset_tag_names IS NULL OR at.name = ANY(asset_tag_names))
+        GROUP BY bg.name, v.severity
+    )
+    SELECT 
+        'MTTR' as metric_name,
+        COALESCE(cp.mttr_current, 0) as current_value,
+        COALESCE(pp.mttr_previous, 0) as previous_value,
+        CASE 
+            WHEN pp.mttr_previous > 0 THEN 
+                ROUND(((cp.mttr_current - pp.mttr_previous) / pp.mttr_previous * 100), 2)
+            ELSE NULL
+        END as trend_percentage,
+        CASE 
+            WHEN pp.mttr_previous IS NULL THEN 'new'
+            WHEN cp.mttr_current < pp.mttr_previous THEN 'improving'
+            WHEN cp.mttr_current > pp.mttr_previous THEN 'worsening'
+            ELSE 'stable'
+        END as trend_direction,
+        cp.bg_name as business_group,
+        cp.severity,
+        current_start as period_start,
+        current_end as period_end
+    FROM current_period cp
+    FULL OUTER JOIN previous_period pp ON cp.bg_name = pp.bg_name AND cp.severity = pp.severity
+    ORDER BY cp.bg_name, cp.severity;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Daily Remediation Metrics with trends
+CREATE OR REPLACE FUNCTION get_remediation_velocity_metrics(
+    time_period TEXT DEFAULT '7d',
+    business_group_ids INTEGER[] DEFAULT NULL,
+    asset_tag_names TEXT[] DEFAULT NULL
+)
+RETURNS TABLE(
+    metric_name TEXT,
+    current_value DECIMAL,
+    previous_value DECIMAL,
+    trend_percentage DECIMAL,
+    trend_direction TEXT,
+    business_group TEXT,
+    period_start DATE,
+    period_end DATE
+) AS $$
+DECLARE
+    current_start DATE;
+    current_end DATE;
+    prev_start DATE;
+    prev_end DATE;
+    period_days INTEGER;
+BEGIN
+    -- Get date ranges
+    SELECT start_date, end_date INTO current_start, current_end
+    FROM get_date_range(time_period);
+    
+    period_days := current_end - current_start;
+    prev_start := current_start - INTERVAL (period_days || ' days');
+    prev_end := current_start;
+    
+    RETURN QUERY
+    WITH current_period AS (
+        SELECT 
+            COALESCE(bg.name, 'No Group') as bg_name,
+            COUNT(f.id)::DECIMAL / GREATEST(period_days, 1) as daily_fixes_current,
+            COUNT(f.id) as total_fixes_current
+        FROM finding f
+        JOIN asset a ON f.asset_id = a.id
+        LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+        LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+        LEFT JOIN asset_asset_tag aat ON a.id = aat.asset_id
+        LEFT JOIN asset_tag at ON aat.tag_id = at.id
+        WHERE f.status = 'fixed' 
+        AND f.fixed_at IS NOT NULL
+        AND f.fixed_at::DATE BETWEEN current_start AND current_end
+        AND (business_group_ids IS NULL OR bg.id = ANY(business_group_ids))
+        AND (asset_tag_names IS NULL OR at.name = ANY(asset_tag_names))
+        GROUP BY bg.name
+    ),
+    previous_period AS (
+        SELECT 
+            COALESCE(bg.name, 'No Group') as bg_name,
+            COUNT(f.id)::DECIMAL / GREATEST(period_days, 1) as daily_fixes_previous,
+            COUNT(f.id) as total_fixes_previous
+        FROM finding f
+        JOIN asset a ON f.asset_id = a.id
+        LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+        LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+        LEFT JOIN asset_asset_tag aat ON a.id = aat.asset_id
+        LEFT JOIN asset_tag at ON aat.tag_id = at.id
+        WHERE f.status = 'fixed' 
+        AND f.fixed_at IS NOT NULL
+        AND f.fixed_at::DATE BETWEEN prev_start AND prev_end
+        AND (business_group_ids IS NULL OR bg.id = ANY(business_group_ids))
+        AND (asset_tag_names IS NULL OR at.name = ANY(asset_tag_names))
+        GROUP BY bg.name
+    )
+    SELECT 
+        'Daily Remediation Rate' as metric_name,
+        ROUND(COALESCE(cp.daily_fixes_current, 0), 2) as current_value,
+        ROUND(COALESCE(pp.daily_fixes_previous, 0), 2) as previous_value,
+        CASE 
+            WHEN pp.daily_fixes_previous > 0 THEN 
+                ROUND(((cp.daily_fixes_current - pp.daily_fixes_previous) / pp.daily_fixes_previous * 100), 2)
+            ELSE NULL
+        END as trend_percentage,
+        CASE 
+            WHEN pp.daily_fixes_previous IS NULL THEN 'new'
+            WHEN cp.daily_fixes_current > pp.daily_fixes_previous THEN 'improving'
+            WHEN cp.daily_fixes_current < pp.daily_fixes_previous THEN 'worsening'
+            ELSE 'stable'
+        END as trend_direction,
+        cp.bg_name as business_group,
+        current_start as period_start,
+        current_end as period_end
+    FROM current_period cp
+    FULL OUTER JOIN previous_period pp ON cp.bg_name = pp.bg_name
+    ORDER BY cp.bg_name;
+END;
+$$ LANGUAGE plpgsql;
+
+-- SLA Compliance Metrics with trends
+CREATE OR REPLACE FUNCTION get_sla_compliance_metrics(
+    time_period TEXT DEFAULT '7d',
+    business_group_ids INTEGER[] DEFAULT NULL,
+    asset_tag_names TEXT[] DEFAULT NULL
+)
+RETURNS TABLE(
+    metric_name TEXT,
+    current_value DECIMAL,
+    previous_value DECIMAL,
+    trend_percentage DECIMAL,
+    trend_direction TEXT,
+    business_group TEXT,
+    severity TEXT,
+    period_start DATE,
+    period_end DATE
+) AS $$
+DECLARE
+    current_start DATE;
+    current_end DATE;
+    prev_start DATE;
+    prev_end DATE;
+    period_days INTEGER;
+BEGIN
+    -- Get date ranges
+    SELECT start_date, end_date INTO current_start, current_end
+    FROM get_date_range(time_period);
+    
+    period_days := current_end - current_start;
+    prev_start := current_start - INTERVAL (period_days || ' days');
+    prev_end := current_start;
+    
+    RETURN QUERY
+    WITH current_period AS (
+        SELECT 
+            COALESCE(bg.name, 'No Group') as bg_name,
+            v.severity,
+            COUNT(*) FILTER (WHERE sla_status = 'compliant')::DECIMAL / GREATEST(COUNT(*), 1) * 100 as compliance_rate_current,
+            COUNT(*) as total_findings_current
+        FROM sla_status ss
+        JOIN finding f ON ss.finding_id = f.id
+        JOIN vulnerability v ON f.vulnerability_id = v.id
+        JOIN asset a ON f.asset_id = a.id
+        LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+        LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+        LEFT JOIN asset_asset_tag aat ON a.id = aat.asset_id
+        LEFT JOIN asset_tag at ON aat.tag_id = at.id
+        WHERE f.first_seen::DATE BETWEEN current_start AND current_end
+        AND (business_group_ids IS NULL OR bg.id = ANY(business_group_ids))
+        AND (asset_tag_names IS NULL OR at.name = ANY(asset_tag_names))
+        GROUP BY bg.name, v.severity
+    ),
+    previous_period AS (
+        SELECT 
+            COALESCE(bg.name, 'No Group') as bg_name,
+            v.severity,
+            COUNT(*) FILTER (WHERE sla_status = 'compliant')::DECIMAL / GREATEST(COUNT(*), 1) * 100 as compliance_rate_previous,
+            COUNT(*) as total_findings_previous
+        FROM sla_status ss
+        JOIN finding f ON ss.finding_id = f.id
+        JOIN vulnerability v ON f.vulnerability_id = v.id
+        JOIN asset a ON f.asset_id = a.id
+        LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+        LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+        LEFT JOIN asset_asset_tag aat ON a.id = aat.asset_id
+        LEFT JOIN asset_tag at ON aat.tag_id = at.id
+        WHERE f.first_seen::DATE BETWEEN prev_start AND prev_end
+        AND (business_group_ids IS NULL OR bg.id = ANY(business_group_ids))
+        AND (asset_tag_names IS NULL OR at.name = ANY(asset_tag_names))
+        GROUP BY bg.name, v.severity
+    )
+    SELECT 
+        'SLA Compliance Rate' as metric_name,
+        ROUND(COALESCE(cp.compliance_rate_current, 0), 2) as current_value,
+        ROUND(COALESCE(pp.compliance_rate_previous, 0), 2) as previous_value,
+        CASE 
+            WHEN pp.compliance_rate_previous > 0 THEN 
+                ROUND(((cp.compliance_rate_current - pp.compliance_rate_previous) / pp.compliance_rate_previous * 100), 2)
+            ELSE NULL
+        END as trend_percentage,
+        CASE 
+            WHEN pp.compliance_rate_previous IS NULL THEN 'new'
+            WHEN cp.compliance_rate_current > pp.compliance_rate_previous THEN 'improving'
+            WHEN cp.compliance_rate_current < pp.compliance_rate_previous THEN 'worsening'
+            ELSE 'stable'
+        END as trend_direction,
+        cp.bg_name as business_group,
+        cp.severity,
+        current_start as period_start,
+        current_end as period_end
+    FROM current_period cp
+    FULL OUTER JOIN previous_period pp ON cp.bg_name = pp.bg_name AND cp.severity = pp.severity
+    ORDER BY cp.bg_name, cp.severity;
 END;
 $$ LANGUAGE plpgsql;
 ```
@@ -920,7 +1308,73 @@ class CampaignFinding(models.Model):
         db_table = 'campaign_finding'
         unique_together = ['campaign', 'finding']
 
-class NessusUpload(models.Model):
+class ScannerIntegration(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    version = models.CharField(max_length=50, null=True, blank=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'scanner_integration'
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name}" + (f" v{self.version}" if self.version else "")
+
+class FieldMapping(models.Model):
+    FIELD_TYPE_CHOICES = [
+        ('string', 'String'),
+        ('integer', 'Integer'),
+        ('decimal', 'Decimal'),
+        ('boolean', 'Boolean'),
+        ('json', 'JSON'),
+        ('datetime', 'DateTime'),
+    ]
+    
+    TARGET_MODEL_CHOICES = [
+        ('asset', 'Asset'),
+        ('vulnerability', 'Vulnerability'),
+        ('finding', 'Finding'),
+    ]
+    
+    integration = models.ForeignKey(ScannerIntegration, on_delete=models.CASCADE, related_name='field_mappings')
+    source_field = models.CharField(max_length=200, help_text="XML path or field name from scanner (e.g., 'host-ip' or 'ReportItem@pluginID')")
+    target_model = models.CharField(max_length=50, choices=TARGET_MODEL_CHOICES)
+    target_field = models.CharField(max_length=100, help_text="Model field name (e.g., 'ip_address' or 'metadata.os')")
+    field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='string')
+    is_required = models.BooleanField(default=False)
+    default_value = models.TextField(blank=True, help_text="Default value if source field is empty")
+    transformation_rule = models.TextField(blank=True, help_text="Python expression for complex transformations")
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.IntegerField(default=0)
+    
+    class Meta:
+        db_table = 'field_mapping'
+        ordering = ['integration', 'target_model', 'sort_order']
+        unique_together = ['integration', 'source_field', 'target_model', 'target_field']
+    
+    def __str__(self):
+        return f"{self.integration.name}: {self.source_field} → {self.target_model}.{self.target_field}"
+
+class SeverityMapping(models.Model):
+    integration = models.ForeignKey(ScannerIntegration, on_delete=models.CASCADE, related_name='severity_mappings')
+    source_value = models.CharField(max_length=50, help_text="Scanner-specific severity value")
+    target_value = models.CharField(max_length=20, choices=Vulnerability.SEVERITY_CHOICES)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'severity_mapping'
+        ordering = ['integration', 'source_value']
+        unique_together = ['integration', 'source_value']
+    
+    def __str__(self):
+        return f"{self.integration.name}: {self.source_value} → {self.target_value}"
+
+class ScannerUpload(models.Model):
+    integration = models.ForeignKey(ScannerIntegration, on_delete=models.CASCADE, related_name='uploads')
     filename = models.CharField(max_length=255)
     file_size = models.IntegerField(null=True, blank=True)
     file_path = models.TextField()  # Supabase Storage path
@@ -929,13 +1383,14 @@ class NessusUpload(models.Model):
     status = models.CharField(max_length=20, default='pending')
     error_message = models.TextField(blank=True)
     stats = models.JSONField(default=dict, blank=True)
+    processing_notes = models.TextField(blank=True)
     
     class Meta:
-        db_table = 'nessus_upload'
+        db_table = 'scanner_upload'
         ordering = ['-uploaded_at']
     
     def __str__(self):
-        return f"{self.filename} ({self.status})"
+        return f"{self.filename} ({self.integration.name}) - {self.status}"
 ```
 
 ---
@@ -944,49 +1399,84 @@ class NessusUpload(models.Model):
 
 ### Field Mapping from .nessus to Models
 ```python
-# nessus_import.py
+# scanner_import.py
 import xml.etree.ElementTree as ET
+import json
 from django.db import transaction
+from django.utils import timezone
 from datetime import datetime
 
-class NessusImporter:
+class ScannerImporter:
     """
-    Maps Nessus XML fields to our data model
-    Based on Tenable .nessus file format
+    Generic scanner import class that uses database-configured field mappings
     """
     
-    # Nessus severity to our severity mapping
-    SEVERITY_MAP = {
-        '0': 'Info',
-        '1': 'Low',
-        '2': 'Medium',
-        '3': 'High',
-        '4': 'Critical'
-    }
+    def __init__(self, integration_name='Nessus'):
+        self.integration = ScannerIntegration.objects.get(name=integration_name, is_active=True)
+        self.field_mappings = self._load_field_mappings()
+        self.severity_mappings = self._load_severity_mappings()
     
-    # Core field mappings from Nessus XML
-    FIELD_MAPPINGS = {
-        # Asset fields
-        'host-ip': 'ip_address',
-        'host-fqdn': 'hostname',
-        'operating-system': 'metadata.os',
-        'mac-address': 'metadata.mac_address',
+    def _load_field_mappings(self):
+        """Load active field mappings from database"""
+        mappings = {}
+        for mapping in self.integration.field_mappings.filter(is_active=True).order_by('sort_order'):
+            if mapping.target_model not in mappings:
+                mappings[mapping.target_model] = []
+            mappings[mapping.target_model].append(mapping)
+        return mappings
+    
+    def _load_severity_mappings(self):
+        """Load severity mappings from database"""
+        return {
+            sm.source_value: sm.target_value 
+            for sm in self.integration.severity_mappings.filter(is_active=True)
+        }
+    
+    def _apply_transformation(self, value, mapping):
+        """Apply transformation rule if specified"""
+        if not mapping.transformation_rule or not value:
+            return value
         
-        # Vulnerability fields
-        'pluginID': 'external_id',
-        'pluginName': 'name',
-        'description': 'description',
-        'solution': 'solution',
-        'risk_factor': 'severity',
-        'cvss3_base_score': 'cvss_score',
-        'cve': 'cve_id',
-        
-        # Finding fields
-        'port': 'port',
-        'protocol': 'protocol',
-        'svc_name': 'service',
-        'plugin_output': 'plugin_output'
-    }
+        try:
+            # Safe eval with limited context for simple transformations
+            context = {
+                'value': value,
+                'str': str,
+                'int': int,
+                'float': float,
+                'len': len,
+                'strip': lambda x: x.strip() if hasattr(x, 'strip') else x,
+                'lower': lambda x: x.lower() if hasattr(x, 'lower') else x,
+                'upper': lambda x: x.upper() if hasattr(x, 'upper') else x,
+                'split': lambda x, sep: x.split(sep) if hasattr(x, 'split') else [x],
+                'first': lambda x: x[0] if x and len(x) > 0 else '',
+            }
+            return eval(mapping.transformation_rule, {"__builtins__": {}}, context)
+        except Exception as e:
+            print(f"Transformation error for {mapping.source_field}: {e}")
+            return value
+    
+    def _convert_value(self, value, field_type):
+        """Convert value to appropriate Python type"""
+        if not value and value != 0:
+            return None
+            
+        try:
+            if field_type == 'integer':
+                return int(float(value)) if value else 0
+            elif field_type == 'decimal':
+                return float(value) if value else 0.0
+            elif field_type == 'boolean':
+                return str(value).lower() in ('true', '1', 'yes', 'on') if value else False
+            elif field_type == 'json':
+                return json.loads(value) if value else {}
+            elif field_type == 'datetime':
+                from django.utils.dateparse import parse_datetime
+                return parse_datetime(value) if value else None
+            else:  # string
+                return str(value) if value else ''
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return None
     
     def import_file(self, file_path, upload_record=None):
         """Import a .nessus file"""
@@ -1028,7 +1518,7 @@ class NessusImporter:
     
     @transaction.atomic
     def _process_host(self, report_host):
-        """Process a ReportHost element into an Asset"""
+        """Process a ReportHost element into an Asset using database mappings"""
         # Extract host properties
         host_props = {}
         for tag in report_host.findall('.//HostProperties/tag'):
@@ -1037,23 +1527,46 @@ class NessusImporter:
             if name and value:
                 host_props[name] = value
         
-        # Create or update asset
-        ip = host_props.get('host-ip', report_host.get('name'))
-        hostname = host_props.get('host-fqdn') or host_props.get('hostname')
-        
+        # Initialize asset data with defaults
         asset_data = {
-            'name': hostname or ip,
-            'ip_address': ip if self._is_valid_ip(ip) else None,
-            'hostname': hostname,
             'asset_type': AssetType.objects.get_or_create(name='Host')[0],
-            'metadata': {
-                'os': host_props.get('operating-system', ''),
-                'mac_address': host_props.get('mac-address', ''),
-                'netbios_name': host_props.get('netbios-name', ''),
-                'system_type': host_props.get('system-type', ''),
-                'last_scan': datetime.now().isoformat()
-            }
+            'metadata': {}
         }
+        
+        # Apply database field mappings for assets
+        if 'asset' in self.field_mappings:
+            for mapping in self.field_mappings['asset']:
+                source_value = None
+                
+                # Get value from host properties or XML attributes
+                if mapping.source_field in host_props:
+                    source_value = host_props[mapping.source_field]
+                elif mapping.source_field == 'host-name':
+                    source_value = report_host.get('name')
+                
+                # Apply transformation if specified
+                if source_value:
+                    source_value = self._apply_transformation(source_value, mapping)
+                
+                # Convert and assign value
+                if source_value or mapping.default_value:
+                    final_value = source_value or mapping.default_value
+                    converted_value = self._convert_value(final_value, mapping.field_type)
+                    
+                    if '.' in mapping.target_field:
+                        # Handle nested fields like 'metadata.os'
+                        parts = mapping.target_field.split('.')
+                        if parts[0] == 'metadata':
+                            asset_data['metadata'][parts[1]] = converted_value
+                    else:
+                        asset_data[mapping.target_field] = converted_value
+        
+        # Ensure required fields have values
+        if 'name' not in asset_data:
+            asset_data['name'] = asset_data.get('hostname') or asset_data.get('ip_address') or 'Unknown Host'
+        
+        # Add scan timestamp to metadata
+        asset_data['metadata']['last_scan'] = datetime.now().isoformat()
         
         asset, created = Asset.objects.update_or_create(
             name=asset_data['name'],
@@ -1065,63 +1578,110 @@ class NessusImporter:
     
     @transaction.atomic
     def _process_item(self, report_item, asset):
-        """Process a ReportItem into Vulnerability and Finding"""
-        # Extract vulnerability data
-        plugin_id = report_item.get('pluginID')
+        """Process a ReportItem into Vulnerability and Finding using database mappings"""
+        
+        # Initialize data structures
+        vuln_data = {'metadata': {}}
+        finding_data = {'asset': asset, 'metadata': {}}
+        
+        # Get severity mapping
         severity_num = report_item.get('severity', '0')
+        vuln_data['severity'] = self.severity_mappings.get(severity_num, 'Info')
         
-        vuln_data = {
-            'external_id': plugin_id,
-            'name': report_item.get('pluginName', 'Unknown'),
-            'description': self._get_text(report_item, 'description'),
-            'solution': self._get_text(report_item, 'solution'),
-            'severity': self.SEVERITY_MAP.get(severity_num, 'Info'),
-            'metadata': {
-                'plugin_family': report_item.get('pluginFamily', ''),
-                'plugin_type': self._get_text(report_item, 'plugin_type'),
-                'plugin_publication_date': self._get_text(report_item, 'plugin_publication_date'),
-                'plugin_modification_date': self._get_text(report_item, 'plugin_modification_date')
-            }
-        }
+        # Apply database field mappings for vulnerabilities
+        if 'vulnerability' in self.field_mappings:
+            for mapping in self.field_mappings['vulnerability']:
+                source_value = None
+                
+                # Get value from XML element
+                if mapping.source_field.startswith('@'):
+                    # Attribute (e.g., '@pluginID')
+                    attr_name = mapping.source_field[1:]
+                    source_value = report_item.get(attr_name)
+                else:
+                    # Child element (e.g., 'description')
+                    source_value = self._get_text(report_item, mapping.source_field)
+                
+                # Apply transformation if specified
+                if source_value:
+                    source_value = self._apply_transformation(source_value, mapping)
+                
+                # Convert and assign value
+                if source_value or mapping.default_value:
+                    final_value = source_value or mapping.default_value
+                    converted_value = self._convert_value(final_value, mapping.field_type)
+                    
+                    if '.' in mapping.target_field:
+                        # Handle nested fields like 'metadata.plugin_family'
+                        parts = mapping.target_field.split('.')
+                        if parts[0] == 'metadata':
+                            vuln_data['metadata'][parts[1]] = converted_value
+                    else:
+                        vuln_data[mapping.target_field] = converted_value
         
-        # Extract CVE if present
-        cve = self._get_text(report_item, 'cve')
-        if cve:
-            vuln_data['cve_id'] = cve.split(',')[0].strip()  # Take first CVE if multiple
+        # Apply database field mappings for findings
+        if 'finding' in self.field_mappings:
+            for mapping in self.field_mappings['finding']:
+                source_value = None
+                
+                # Get value from XML element
+                if mapping.source_field.startswith('@'):
+                    # Attribute (e.g., '@port')
+                    attr_name = mapping.source_field[1:]
+                    source_value = report_item.get(attr_name)
+                else:
+                    # Child element (e.g., 'plugin_output')
+                    source_value = self._get_text(report_item, mapping.source_field)
+                
+                # Apply transformation if specified
+                if source_value:
+                    source_value = self._apply_transformation(source_value, mapping)
+                
+                # Convert and assign value
+                if source_value or mapping.default_value:
+                    final_value = source_value or mapping.default_value
+                    converted_value = self._convert_value(final_value, mapping.field_type)
+                    
+                    if '.' in mapping.target_field:
+                        # Handle nested fields like 'metadata.exploit_available'
+                        parts = mapping.target_field.split('.')
+                        if parts[0] == 'metadata':
+                            finding_data['metadata'][parts[1]] = converted_value
+                    else:
+                        finding_data[mapping.target_field] = converted_value
         
-        # Extract CVSS score
-        cvss3 = self._get_text(report_item, 'cvss3_base_score')
-        cvss = self._get_text(report_item, 'cvss_base_score')
-        vuln_data['cvss_score'] = float(cvss3 or cvss or 0)
+        # Ensure required vulnerability fields
+        if 'external_id' not in vuln_data:
+            vuln_data['external_id'] = report_item.get('pluginID')
+        if 'name' not in vuln_data:
+            vuln_data['name'] = report_item.get('pluginName', 'Unknown Vulnerability')
         
         # Create or update vulnerability
         vuln, created = Vulnerability.objects.update_or_create(
-            external_id=plugin_id,
+            external_id=vuln_data['external_id'],
             defaults=vuln_data
         )
         
-        # Create finding
-        finding_data = {
-            'asset': asset,
-            'vulnerability': vuln,
-            'port': int(report_item.get('port', 0)),
-            'protocol': report_item.get('protocol', ''),
-            'service': report_item.get('svc_name', ''),
-            'plugin_output': self._get_text(report_item, 'plugin_output'),
-            'last_seen': timezone.now(),
-            'metadata': {
-                'exploit_available': self._get_text(report_item, 'exploit_available') == 'true',
-                'exploit_ease': self._get_text(report_item, 'exploit_ease'),
-                'patch_publication_date': self._get_text(report_item, 'patch_publication_date')
-            }
-        }
+        # Complete finding data
+        finding_data['vulnerability'] = vuln
+        finding_data['last_seen'] = timezone.now()
         
+        # Ensure port is integer
+        if 'port' in finding_data and finding_data['port']:
+            try:
+                finding_data['port'] = int(finding_data['port'])
+            except (ValueError, TypeError):
+                finding_data['port'] = 0
+        else:
+            finding_data['port'] = 0
+        
+        # Create or update finding
         finding, created = Finding.objects.update_or_create(
             asset=asset,
             vulnerability=vuln,
-            port=finding_data['port'],
-            protocol=finding_data['protocol'],
-            service=finding_data['service'],
+            port=finding_data.get('port', 0),
+            protocol=finding_data.get('protocol', ''),
+            service=finding_data.get('service', ''),
             defaults=finding_data
         )
         
@@ -1281,12 +1841,58 @@ admin.site.register(Vulnerability)
 admin.site.register(BusinessGroup)
 admin.site.register(SLAPolicy)
 
-# Add custom admin action for Nessus import
-@admin.register(NessusUpload)
-class NessusUploadAdmin(admin.ModelAdmin):
-    list_display = ['filename', 'uploaded_at', 'status', 'stats_summary']
-    list_filter = ['status', 'uploaded_at']
+# Scanner Integration Management
+@admin.register(ScannerIntegration)
+class ScannerIntegrationAdmin(admin.ModelAdmin):
+    list_display = ['name', 'version', 'is_active', 'field_mapping_count', 'severity_mapping_count', 'upload_count']
+    list_filter = ['is_active', 'name']
+    search_fields = ['name', 'version', 'description']
+    readonly_fields = ['created_at']
+    
+    def field_mapping_count(self, obj):
+        return obj.field_mappings.filter(is_active=True).count()
+    field_mapping_count.short_description = 'Active Field Mappings'
+    
+    def severity_mapping_count(self, obj):
+        return obj.severity_mappings.filter(is_active=True).count()
+    severity_mapping_count.short_description = 'Active Severity Mappings'
+    
+    def upload_count(self, obj):
+        return obj.uploads.count()
+    upload_count.short_description = 'Total Uploads'
+
+@admin.register(FieldMapping)
+class FieldMappingAdmin(admin.ModelAdmin):
+    list_display = ['integration', 'source_field', 'target_model', 'target_field', 'field_type', 'is_active', 'sort_order']
+    list_filter = ['integration', 'target_model', 'field_type', 'is_active']
+    search_fields = ['source_field', 'target_field', 'description']
+    ordering = ['integration', 'target_model', 'sort_order']
+    
+    fieldsets = (
+        ('Basic Mapping', {
+            'fields': ('integration', 'source_field', 'target_model', 'target_field', 'field_type')
+        }),
+        ('Configuration', {
+            'fields': ('is_required', 'default_value', 'transformation_rule', 'sort_order')
+        }),
+        ('Status & Documentation', {
+            'fields': ('is_active', 'description')
+        }),
+    )
+
+@admin.register(SeverityMapping)
+class SeverityMappingAdmin(admin.ModelAdmin):
+    list_display = ['integration', 'source_value', 'target_value', 'is_active']
+    list_filter = ['integration', 'target_value', 'is_active']
+    ordering = ['integration', 'source_value']
+
+# File Upload Management
+@admin.register(ScannerUpload)
+class ScannerUploadAdmin(admin.ModelAdmin):
+    list_display = ['filename', 'integration', 'uploaded_at', 'status', 'stats_summary']
+    list_filter = ['integration', 'status', 'uploaded_at']
     readonly_fields = ['uploaded_at', 'processed_at', 'stats', 'error_message']
+    search_fields = ['filename']
     
     def stats_summary(self, obj):
         if obj.stats:
@@ -1299,7 +1905,7 @@ class NessusUploadAdmin(admin.ModelAdmin):
     def process_upload(self, request, queryset):
         for upload in queryset.filter(status='pending'):
             # In production, this would be an async task
-            importer = NessusImporter()
+            importer = ScannerImporter(upload.integration.name)
             importer.import_file(upload.file_path, upload)
         self.message_user(request, f'Processing {queryset.count()} uploads')
     process_upload.short_description = 'Process selected uploads'
@@ -1439,50 +2045,154 @@ class FindingViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def remediation_metrics(self, request):
-        """Get comprehensive remediation performance metrics"""
+        """Get comprehensive remediation performance metrics with filtering and trends"""
         from django.db import connection
         
-        metrics = {}
+        # Get query parameters
+        time_period = request.query_params.get('period', '7d')  # 7d, 30d, 90d, 1y, all
+        business_group_ids = request.query_params.getlist('business_groups')
+        asset_tag_names = request.query_params.getlist('tags')
+        
+        # Convert business group IDs to integers
+        bg_ids = [int(bg_id) for bg_id in business_group_ids if bg_id.isdigit()] if business_group_ids else None
+        tag_names = asset_tag_names if asset_tag_names else None
+        
+        metrics = {
+            'filters': {
+                'time_period': time_period,
+                'business_groups': bg_ids,
+                'tags': tag_names
+            },
+            'mttr_metrics': [],
+            'remediation_velocity': [],
+            'sla_compliance': []
+        }
         
         with connection.cursor() as cursor:
-            # Get average daily remediation
-            cursor.execute("SELECT * FROM daily_remediation_stats")
-            daily_stats = cursor.fetchone()
-            if daily_stats:
-                metrics['avg_daily_remediation'] = float(daily_stats[0])
-                metrics['period_start'] = daily_stats[1]
-                metrics['period_end'] = daily_stats[2]
-                metrics['days_with_fixes'] = daily_stats[3]
+            # Get MTTR metrics with trends
+            cursor.execute("""
+                SELECT * FROM get_mttr_metrics(%s, %s, %s)
+                ORDER BY business_group, severity
+            """, [time_period, bg_ids, tag_names])
             
-            # Get remediation capacity
-            cursor.execute("SELECT * FROM remediation_capacity")
-            capacity = cursor.fetchone()
-            if capacity:
-                metrics['avg_introduced'] = float(capacity[0]) if capacity[0] else 0
-                metrics['avg_remediated'] = float(capacity[1]) if capacity[1] else 0
-                metrics['remediation_capacity_percent'] = float(capacity[2]) if capacity[2] else 0
-            
-            # Get MTTR by asset type
-            cursor.execute("SELECT * FROM mttr_by_asset_type ORDER BY asset_type, severity")
             columns = [col[0] for col in cursor.description]
-            metrics['mttr_by_asset_type'] = [
-                dict(zip(columns, row)) for row in cursor.fetchall()
-            ]
+            metrics['mttr_metrics'] = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
-            # Get overall MTTR (no grouping)
+            # Get remediation velocity metrics
+            cursor.execute("""
+                SELECT * FROM get_remediation_velocity_metrics(%s, %s, %s)
+                ORDER BY business_group
+            """, [time_period, bg_ids, tag_names])
+            
+            columns = [col[0] for col in cursor.description]
+            metrics['remediation_velocity'] = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            
+            # Get SLA compliance metrics
+            cursor.execute("""
+                SELECT * FROM get_sla_compliance_metrics(%s, %s, %s)
+                ORDER BY business_group, severity
+            """, [time_period, bg_ids, tag_names])
+            
+            columns = [col[0] for col in cursor.description]
+            metrics['sla_compliance'] = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            
+            # Get summary statistics
             cursor.execute("""
                 SELECT 
-                    AVG(EXTRACT(days FROM (fixed_at - first_seen)))::DECIMAL(10,2) as overall_mttr,
-                    COUNT(*) as total_fixed
-                FROM finding
-                WHERE status = 'fixed' AND fixed_at IS NOT NULL
-            """)
-            overall = cursor.fetchone()
-            if overall:
-                metrics['overall_mttr'] = float(overall[0]) if overall[0] else 0
-                metrics['total_fixed'] = overall[1]
+                    COUNT(DISTINCT a.id) as total_assets,
+                    COUNT(f.id) as total_findings,
+                    COUNT(f.id) FILTER (WHERE f.status = 'fixed') as fixed_findings,
+                    COUNT(f.id) FILTER (WHERE f.status = 'open') as open_findings
+                FROM finding f
+                JOIN asset a ON f.asset_id = a.id
+                LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+                LEFT JOIN asset_asset_tag aat ON a.id = aat.asset_id
+                LEFT JOIN asset_tag at ON aat.tag_id = at.id
+                WHERE (%s::INTEGER[] IS NULL OR abg.business_group_id = ANY(%s))
+                AND (%s::TEXT[] IS NULL OR at.name = ANY(%s))
+            """, [bg_ids, bg_ids, tag_names, tag_names])
+            
+            summary = cursor.fetchone()
+            if summary:
+                metrics['summary'] = {
+                    'total_assets': summary[0],
+                    'total_findings': summary[1],
+                    'fixed_findings': summary[2],
+                    'open_findings': summary[3],
+                    'fix_rate': round((summary[2] / max(summary[1], 1)) * 100, 2)
+                }
         
         return Response(metrics)
+    
+    @action(detail=False, methods=['get'])
+    def metric_trends(self, request):
+        """Get time series data for metric trends"""
+        from django.db import connection
+        
+        time_period = request.query_params.get('period', '30d')
+        metric_type = request.query_params.get('metric', 'mttr')  # mttr, velocity, sla
+        business_group_ids = request.query_params.getlist('business_groups')
+        
+        bg_ids = [int(bg_id) for bg_id in business_group_ids if bg_id.isdigit()] if business_group_ids else None
+        
+        with connection.cursor() as cursor:
+            if metric_type == 'mttr':
+                # Daily MTTR over time period
+                cursor.execute("""
+                    WITH date_series AS (
+                        SELECT generate_series(
+                            CURRENT_DATE - INTERVAL '30 days',
+                            CURRENT_DATE,
+                            '1 day'::interval
+                        )::DATE as date
+                    )
+                    SELECT 
+                        ds.date,
+                        COALESCE(bg.name, 'Overall') as business_group,
+                        COALESCE(AVG(EXTRACT(days FROM (f.fixed_at - f.first_seen))), 0)::DECIMAL(10,2) as mttr
+                    FROM date_series ds
+                    LEFT JOIN finding f ON f.fixed_at::DATE = ds.date AND f.status = 'fixed'
+                    LEFT JOIN asset a ON f.asset_id = a.id
+                    LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+                    LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+                    WHERE %s::INTEGER[] IS NULL OR bg.id = ANY(%s) OR bg.id IS NULL
+                    GROUP BY ds.date, bg.name
+                    ORDER BY ds.date, bg.name
+                """, [bg_ids, bg_ids])
+            
+            elif metric_type == 'velocity':
+                # Daily fix count over time period
+                cursor.execute("""
+                    WITH date_series AS (
+                        SELECT generate_series(
+                            CURRENT_DATE - INTERVAL '30 days',
+                            CURRENT_DATE,
+                            '1 day'::interval
+                        )::DATE as date
+                    )
+                    SELECT 
+                        ds.date,
+                        COALESCE(bg.name, 'Overall') as business_group,
+                        COUNT(f.id) as daily_fixes
+                    FROM date_series ds
+                    LEFT JOIN finding f ON f.fixed_at::DATE = ds.date AND f.status = 'fixed'
+                    LEFT JOIN asset a ON f.asset_id = a.id
+                    LEFT JOIN asset_business_group abg ON a.id = abg.asset_id
+                    LEFT JOIN business_group bg ON abg.business_group_id = bg.id
+                    WHERE %s::INTEGER[] IS NULL OR bg.id = ANY(%s) OR bg.id IS NULL
+                    GROUP BY ds.date, bg.name
+                    ORDER BY ds.date, bg.name
+                """, [bg_ids, bg_ids])
+            
+            columns = [col[0] for col in cursor.description]
+            trend_data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        return Response({
+            'metric_type': metric_type,
+            'time_period': time_period,
+            'business_groups': bg_ids,
+            'trend_data': trend_data
+        })
 
 class RemediationCampaignViewSet(viewsets.ModelViewSet):
     queryset = RemediationCampaign.objects.all()
@@ -1627,8 +2337,8 @@ def download_campaign_report(request, campaign_id):
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 import os
-from ...models import NessusUpload
-from ...nessus_import import NessusImporter
+from ...models import ScannerUpload, ScannerIntegration
+from ...scanner_import import ScannerImporter
 
 class Command(BaseCommand):
     help = 'Import Nessus files from a directory'
@@ -1650,8 +2360,9 @@ class Command(BaseCommand):
         
         self.stdout.write(f'Found {len(nessus_files)} .nessus files')
         
-        # Process in batches
-        importer = NessusImporter()
+        # Get Nessus integration
+        integration = ScannerIntegration.objects.get(name='Nessus', is_active=True)
+        importer = ScannerImporter('Nessus')
         total_stats = {'assets': 0, 'vulnerabilities': 0, 'findings': 0}
         
         for i in range(0, len(nessus_files), batch_size):
@@ -1662,7 +2373,8 @@ class Command(BaseCommand):
                 self.stdout.write(f'  Importing {os.path.basename(file_path)}...')
                 
                 # Create upload record
-                upload = NessusUpload.objects.create(
+                upload = ScannerUpload.objects.create(
+                    integration=integration,
                     filename=os.path.basename(file_path),
                     file_size=os.path.getsize(file_path),
                     status='processing'

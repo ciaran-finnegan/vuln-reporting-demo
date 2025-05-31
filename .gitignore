@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Django
+*.sqlite3
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# Environment variables and secrets
+.env
+.env.*
+*.env
+
+# VSCode/IDE
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node/npm (if any frontend)
+node_modules/
+
+# Test and coverage
+.coverage
+htmlcov/
+
+# Docker
+*.pid
+*.seed
+
+# Misc
+*.bak
+*.tmp 

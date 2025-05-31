@@ -94,10 +94,69 @@
   INSERT INTO asset_type (name) VALUES ('Host'), ('Code'), ('Website'), ('Image'), ('Cloud');
   INSERT INTO sla_policy (name, is_default, severity_days) VALUES 
     ('Default SLA', TRUE, '{"Critical": 1, "High": 7, "Medium": 30, "Low": 90, "Info": 365}');
+  
+  -- Create Nessus integration
+  INSERT INTO scanner_integration (name, description, is_active) VALUES 
+    ('Nessus', 'Tenable Nessus vulnerability scanner integration', TRUE);
+  
+  -- Create Nessus severity mappings
+  INSERT INTO severity_mapping (integration_id, source_value, target_value) 
+  SELECT id, '0', 'Info' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, '1', 'Low' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, '2', 'Medium' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, '3', 'High' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, '4', 'Critical' FROM scanner_integration WHERE name = 'Nessus';
+  
+  -- Create Nessus field mappings for Assets
+  INSERT INTO field_mapping (integration_id, source_field, target_model, target_field, field_type, sort_order, description) 
+  SELECT id, 'host-ip', 'asset', 'ip_address', 'string', 1, 'Host IP address' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'host-fqdn', 'asset', 'hostname', 'string', 2, 'Host FQDN' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'host-name', 'asset', 'name', 'string', 3, 'Host name from XML attribute' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'operating-system', 'asset', 'metadata.os', 'string', 10, 'Operating system' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'mac-address', 'asset', 'metadata.mac_address', 'string', 11, 'MAC address' FROM scanner_integration WHERE name = 'Nessus';
+  
+  -- Create Nessus field mappings for Vulnerabilities  
+  INSERT INTO field_mapping (integration_id, source_field, target_model, target_field, field_type, sort_order, description)
+  SELECT id, '@pluginID', 'vulnerability', 'external_id', 'string', 1, 'Nessus plugin ID' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, '@pluginName', 'vulnerability', 'name', 'string', 2, 'Vulnerability name' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'description', 'vulnerability', 'description', 'string', 3, 'Vulnerability description' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'solution', 'vulnerability', 'solution', 'string', 4, 'Remediation solution' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'cve', 'vulnerability', 'cve_id', 'string', 5, 'CVE ID', 'first(split(value, ","))' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'cvss3_base_score', 'vulnerability', 'cvss_score', 'decimal', 6, 'CVSS v3 base score' FROM scanner_integration WHERE name = 'Nessus';
+  
+  -- Create Nessus field mappings for Findings
+  INSERT INTO field_mapping (integration_id, source_field, target_model, target_field, field_type, sort_order, description)
+  SELECT id, '@port', 'finding', 'port', 'integer', 1, 'Service port' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, '@protocol', 'finding', 'protocol', 'string', 2, 'Network protocol' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, '@svc_name', 'finding', 'service', 'string', 3, 'Service name' FROM scanner_integration WHERE name = 'Nessus'
+  UNION ALL
+  SELECT id, 'plugin_output', 'finding', 'plugin_output', 'string', 4, 'Plugin output details' FROM scanner_integration WHERE name = 'Nessus';
   ```
 
-## 4. Django Models & Admin (30 mins)
-- [ ] Copy model definitions from architecture doc (Section 2)
+## 4. Django Models & Admin (45 mins)
+- [ ] Copy model definitions from architecture doc (Section 2) including new models:
+  ```python
+  # New models for configurable mappings:
+  class ScannerIntegration(models.Model): ...
+  class FieldMapping(models.Model): ...  
+  class SeverityMapping(models.Model): ...
+  class ScannerUpload(models.Model): ...  # Replaces NessusUpload
+  ```
 - [ ] Add db_table to match Supabase tables:
   ```python
   class Asset(models.Model):
@@ -111,9 +170,16 @@
   python manage.py createsuperuser
   ```
 - [ ] Configure admin.py (copy from Section 4)
+- [ ] Test field mapping management in Django admin:
+  - Navigate to /admin/core/scannerintegration/
+  - Verify Nessus integration is created
+  - Navigate to /admin/core/fieldmapping/ 
+  - Test adding/editing field mappings
+  - Navigate to /admin/core/severitymapping/
+  - Test severity mappings
 
-## 5. Nessus Import API (1.5 hours)
-- [ ] Create core/nessus_import.py (from Section 3)
+## 5. Scanner Import API (1.5 hours)
+- [ ] Create core/scanner_import.py (from Section 3) with new ScannerImporter class
 - [ ] Add method to download from Supabase Storage:
   ```python
   def import_from_url(self, file_url):
@@ -132,10 +198,11 @@
   @api_view(['POST'])
   def parse_nessus(request):
       file_path = request.data['file_path']
+      integration_name = request.data.get('integration', 'Nessus')
       supabase_url = os.getenv('SUPABASE_URL')
       file_url = f"{supabase_url}/storage/v1/object/public/nessus-files/{file_path}"
       
-      importer = NessusImporter()
+      importer = ScannerImporter(integration_name)
       stats = importer.import_from_url(file_url)
       
       return Response(stats)
@@ -144,6 +211,10 @@
   ```python
   path('api/parse-nessus/', parse_nessus, name='parse_nessus'),
   ```
+- [ ] Test field mapping configuration by:
+  - Adding a new field mapping in Django admin
+  - Uploading a test file
+  - Verifying the new field is extracted
 
 ## 6. Minimal Django API Endpoints (30 mins)
 - [ ] Create only complex logic endpoints:
@@ -286,13 +357,17 @@
 ---
 
 ## Revised Time Estimates
-- **Total Development Time**: 9-11 hours (1.5 days)
-- **With Testing & Polish**: 2-2.5 days
+- **Total Development Time**: 10-12 hours (1.5-2 days)
+- **With Testing & Polish**: 2.5-3 days
 - **Time Saved**: 
   - Auth setup: -2 hours (Supabase auth)
   - Database hosting: -1 hour (Supabase managed)
   - File storage: -30 mins (Supabase Storage)
   - Simple CRUD API: -1 hour (direct Supabase)
+- **Additional Time for Configurable Mappings**: +1.5 hours
+  - Database schema: 30 mins
+  - Django models: 30 mins
+  - Admin interfaces: 30 mins
 - **Additional Time for Remediation Metrics**: +1 hour
   - Create additional views: 30 mins
   - Add API endpoint: 15 mins
@@ -307,14 +382,47 @@
 
 ## Critical Path Items
 1. Supabase project setup (enables everything else)
-2. Database schema in Supabase
-3. Django Nessus parser API
+2. Database schema in Supabase (including new mapping tables)
+3. Django scanner parser API with configurable mappings
 4. lovable.dev screens with Supabase integration
 5. Testing the full flow
+
+## Adding New Scanner Integrations (Future)
+With the configurable mapping system, adding new scanners becomes trivial:
+
+1. **Create Scanner Integration** (Django Admin):
+   ```
+   Name: OpenVAS
+   Description: OpenVAS vulnerability scanner
+   ```
+
+2. **Add Severity Mappings** (Django Admin):
+   ```
+   OpenVAS: High → High
+   OpenVAS: Medium → Medium
+   OpenVAS: Low → Low
+   ```
+
+3. **Add Field Mappings** (Django Admin):
+   ```
+   host@ip → asset.ip_address
+   nvt@oid → vulnerability.external_id
+   description → vulnerability.description
+   ```
+
+4. **Use Existing API**:
+   ```python
+   importer = ScannerImporter('OpenVAS')
+   stats = importer.import_file(openvas_file)
+   ```
+
+No code changes required - all configuration through Django admin!
 
 ## Where This Approach Shines
 - **Auth**: 15 mins vs 2 hours
 - **File Storage**: Drag-and-drop vs custom implementation
 - **Real-time**: Built-in vs polling/websockets
 - **Database Hosting**: Zero configuration
-- **Frontend-Database**: Direct queries without API layer 
+- **Frontend-Database**: Direct queries without API layer
+- **Configurable Mappings**: Add new scanners without code changes
+- **Field Management**: Non-technical users can modify mappings via admin 
