@@ -4,6 +4,13 @@
 
 Planned features and improvements for the next release:
 
+### Documentation Updates (2024-12-18)
+- Validated schema design against Vulcan Cyber connector requirements
+- Confirmed production-readiness for multi-scanner support (Qualys, Tenable, CrowdStrike, Microsoft Defender)
+- Consolidated duplicate PRD content and removed `docs/risk_radar_prd.md`
+- Updated TODO.md to reflect schema validation completion
+- Added Schema Validation section to main PRD
+
 ### Features
 - Enhanced reporting and export options (PDF, CSV)
 - Remediation performance metrics dashboard
