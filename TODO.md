@@ -1,507 +1,252 @@
 # Risk Radar Development Roadmap & TODO
 
-## Status: MVP Backend Partially Complete, Schema Validated for Multi-Scanner Support
+## Status: Ready for MVP Development
 
-This document tracks implementation tasks based on the comprehensive Product Requirements Document. See [CHANGES.md](./CHANGES.md) for release notes.
+This document tracks implementation tasks aligned with the MVP Feature Matrix in the Product Requirements Document. See [CHANGES.md](./CHANGES.md) for release notes.
 
 ---
 
 ## ✅ Phase 0: Schema Validation Complete
 
 ### Schema Assessment Results
-Based on analysis of Vulcan Cyber connector documentation for Qualys, Tenable, CrowdStrike, and Microsoft Defender, our current schema is **production-ready** for multi-scanner support:
+Based on analysis of Vulcan Cyber connector documentation, our current schema is **production-ready** for multi-scanner support.
 
-#### Validated Schema Strengths
-- [x] **Flexible Identification**: Assets table supports multiple identifiers (hostname, IP, MAC) with JSONB for cloud IDs
-- [x] **Dual Vulnerability Keys**: CVE for cross-scanner deduplication, external_id for scanner-specific
-- [x] **Integration Attribution**: Finding-level integration_id prevents cross-scanner conflicts
-- [x] **JSONB Extensibility**: Matches Vulcan's approach for vendor-specific fields
-- [x] **Configuration-Driven**: field_mapping and severity_mapping enable no-code integration
-
-#### Minor Schema Enhancements (Optional)
-- [ ] Consider adding `last_scan_date` to assets table (currently storable in extra)
-- [ ] Consider adding `service VARCHAR(100)` to findings table for service context
-- [ ] Ensure finding unique constraint includes port/protocol/service for granularity
-
-### Django Model Alignment
-- [ ] Verify all Django models match current schema
-- [ ] Add model methods for deduplication logic
-- [ ] Add calculated properties for risk scoring
-- [ ] Update admin interfaces for all fields
+### Key Validations
+- [x] Flexible asset identification (hostname, IP, MAC, cloud IDs via JSONB)
+- [x] Scanner-agnostic field mapping tables
+- [x] Severity normalisation framework
+- [x] JSONB extensibility for vendor-specific data
+- [x] Proper foreign key relationships and constraints
 
 ---
 
-## 🔧 Phase 1: Core Feature Implementation
+## 🚀 Phase 1: MVP Infrastructure (Days 1-3)
 
-### Asset Deduplication Engine
-- [ ] Implement priority-based deduplication algorithm:
-  - [ ] Cloud instance ID matching (highest priority)
-  - [ ] Agent UUID matching
-  - [ ] MAC + hostname matching
-  - [ ] Hostname + IP matching
-  - [ ] IP-only matching (lowest priority)
-- [ ] Create `merge_assets()` function
-- [ ] Implement proactive detach monitoring
-- [ ] Add deduplication statistics tracking
+### Supabase Setup
+- [ ] Create Supabase project
+- [ ] Deploy database schema
+- [ ] Configure authentication providers
+- [ ] Set up storage buckets for file uploads
+- [ ] Enable Row Level Security (RLS)
 
-### Vulnerability Normalisation
-- [ ] Implement CVE-based deduplication
-- [ ] Add scanner-specific ID handling
-- [ ] Create cross-scanner correlation logic
-- [ ] Add reference URL parsing and storage
+### Django Project
+- [ ] Create minimal Django project structure
+- [ ] Mirror Supabase schema in models.py
+- [ ] Set up Supabase database connection
+- [ ] Create Django admin interface
+- [ ] Configure static file serving
 
-### Field Mapping Engine
-- [ ] Create transformation rule interpreter
-  - [ ] Support Python expressions
-  - [ ] Add built-in functions (lower, upper, split, etc.)
-  - [ ] Implement severity_map transformation
-- [ ] Add support for nested field paths (e.g., `extra.cloud_id`)
-- [ ] Create field type converters
-- [ ] Add validation for required fields
-- [ ] Implement sort order processing
-
-### Severity Mapping Implementation
-- [ ] Create severity normalisation service
-- [ ] Add per-scanner severity configurations
-- [ ] Implement 0-10 scale conversions
-- [ ] Add severity label standardisation
-
-### Risk Scoring Engine
-- [ ] Implement weighted risk formula:
-  - [ ] Severity component (45%)
-  - [ ] Threat component (35%)
-  - [ ] Impact component (20%)
-- [ ] Add asset criticality factors
-- [ ] Include exploit availability scoring
-- [ ] Create risk score recalculation jobs
+### Initial Data
+- [ ] Populate Nessus field mappings
+- [ ] Create default SLA policies (7 days Critical, 30 days High)
+- [ ] Set up initial business groups (Production, Development)
+- [ ] Load Nessus severity mappings
 
 ---
 
-## 📥 Phase 1.5: Scanner Import & Ingestion Pipeline
+## 🔨 Phase 1.5: Scanner Integration (Days 4-6)
 
-### Nessus XML Parser Enhancement
-- [ ] Update XML parser to handle all Nessus fields:
-  - [ ] Host properties extraction (OS, MAC, hostnames)
-  - [ ] Plugin metadata extraction
-  - [ ] CVE and reference parsing
-  - [ ] CVSS score extraction
-  - [ ] Exploit availability flags
-  - [ ] Plugin output and evidence
-- [ ] Add XML validation and error handling
-- [ ] Implement streaming parser for large files
+### Nessus Parser Implementation
+- [ ] XML parsing with configurable field extraction
+- [ ] Field mapping engine using database configuration
+- [ ] Asset deduplication (basic hostname + IP)
+- [ ] Vulnerability deduplication by CVE/plugin ID
+- [ ] Finding creation with proper relationships
+- [ ] Error handling and validation
+- [ ] Progress tracking for large files
 
-### Field Mapping Implementation
-- [ ] Create `FieldMapper` class that:
-  - [ ] Loads active field mappings for integration
-  - [ ] Applies mappings in sort_order sequence
-  - [ ] Handles source field extraction (XML paths, attributes)
-  - [ ] Executes transformation rules
-  - [ ] Applies default values for missing fields
-  - [ ] Validates required fields
-- [ ] Implement transformation functions:
-  - [ ] `value.lower()`, `value.upper()`
-  - [ ] `value.split(delimiter)[index]`
-  - [ ] `severity_map` lookup
-  - [ ] Date parsing transformations
-  - [ ] Numeric conversions
-- [ ] Add support for nested target fields (`extra.cloud_id`)
-
-### Severity Normalisation Pipeline
-- [ ] Create `SeverityNormaliser` that:
-  - [ ] Loads severity mappings for integration
-  - [ ] Translates scanner severity to internal scale
-  - [ ] Sets both severity_level (0-10) and severity_label
-  - [ ] Handles unmapped severities with defaults
-- [ ] Add severity validation and logging
-
-### Asset Import & Deduplication
-- [ ] Implement asset extraction from Nessus:
-  - [ ] Extract all identifiers (hostname, IP, MAC)
-  - [ ] Build extra JSONB with scanner metadata
-  - [ ] Apply field mappings to populate fields
-- [ ] Execute deduplication algorithm:
-  - [ ] Search for existing assets by priority
-  - [ ] Merge with existing or create new
-  - [ ] Update last_seen timestamps
-  - [ ] Aggregate metadata in extra field
-- [ ] Add asset import statistics
-
-### Vulnerability Import & Deduplication
-- [ ] Implement vulnerability extraction:
-  - [ ] Extract plugin ID as external_id
-  - [ ] Set external_source = 'Nessus'
-  - [ ] Extract CVE if available
-  - [ ] Apply field mappings for all fields
-  - [ ] Build extra JSONB with references
-- [ ] Execute vulnerability deduplication:
-  - [ ] Check for existing CVE match
-  - [ ] Check for existing (external_source, external_id)
-  - [ ] Merge or create vulnerability record
-- [ ] Apply severity normalisation
-
-### Finding Import & Lifecycle
-- [ ] Create findings linking assets and vulnerabilities:
-  - [ ] Set integration_id from scanner
-  - [ ] Extract port, protocol, service
-  - [ ] Store plugin_output in details JSONB
-  - [ ] Set initial status = 'open'
-  - [ ] Calculate risk_score
-- [ ] Handle finding updates:
-  - [ ] Update last_seen for existing findings
-  - [ ] Detect fixed findings (not in latest scan)
-  - [ ] Update fixed_at timestamp
-  - [ ] Preserve finding history
-
-### Import Transaction Management
-- [ ] Wrap import in database transaction
-- [ ] Add rollback on errors
-- [ ] Create import statistics:
-  - [ ] Assets: created, updated, errors
-  - [ ] Vulnerabilities: created, updated, errors  
-  - [ ] Findings: created, updated, fixed, errors
-- [ ] Store statistics in scanner_upload record
-- [ ] Add progress tracking for large files
-
-### Error Handling & Logging
-- [ ] Add comprehensive error handling:
-  - [ ] Invalid XML structure
-  - [ ] Missing required fields
-  - [ ] Failed transformations
-  - [ ] Database constraint violations
-- [ ] Create detailed import logs
-- [ ] Add field mapping debugging mode
-- [ ] Implement dry-run mode for testing
+### Django API Endpoints
+- [ ] `POST /api/upload/nessus` - File upload and parsing
+- [ ] `GET /api/reports/mttr` - MTTR calculations
+- [ ] `GET /api/reports/sla` - SLA compliance data
+- [ ] Basic error responses and logging
 
 ---
 
-## 🚀 Phase 2: API Development
+## 🎨 Phase 2: UI Development (Days 7-10)
 
-### REST API Implementation
-- [ ] **Asset Endpoints**
-  - [ ] GET /api/v1/assets/ (list with filtering)
-  - [ ] POST /api/v1/assets/ (create)
-  - [ ] GET /api/v1/assets/{id}/ (detail)
-  - [ ] PUT /api/v1/assets/{id}/ (update)
-  - [ ] DELETE /api/v1/assets/{id}/ (delete)
-  - [ ] POST /api/v1/assets/merge/ (merge duplicates)
+### lovable.dev Setup
+- [ ] Connect to Supabase project
+- [ ] Configure authentication flow
+- [ ] Set up routing structure
+- [ ] Create component library
 
-- [ ] **Vulnerability Endpoints**
-  - [ ] GET /api/v1/vulnerabilities/ (list)
-  - [ ] GET /api/v1/vulnerabilities/{id}/ (detail)
+### Core Pages
+- [ ] **Dashboard**
+  - [ ] Summary statistics widget
+  - [ ] MTTR metrics widget
+  - [ ] SLA compliance widget
+  - [ ] Top risks widget
+- [ ] **Assets Page**
+  - [ ] Table with sorting/filtering
+  - [ ] Business group assignment
+  - [ ] Tag management
+  - [ ] Bulk operations
+- [ ] **Vulnerabilities Page**
+  - [ ] Severity filtering
+  - [ ] Search functionality
+  - [ ] Risk score display
+  - [ ] Export to CSV
+- [ ] **Findings Page**
+  - [ ] Status updates (Open/Fixed/Risk Accepted)
+  - [ ] Bulk status changes
+  - [ ] Filter by business group
+  - [ ] SLA deadline display
+- [ ] **Upload Page**
+  - [ ] Drag-and-drop file upload
+  - [ ] Progress indicator
+  - [ ] Error display
+  - [ ] Success confirmation
 
-- [ ] **Finding Endpoints**
-  - [ ] GET /api/v1/findings/ (list with filters)
-  - [ ] PUT /api/v1/findings/{id}/ (status update)
-  - [ ] POST /api/v1/findings/bulk/ (bulk operations)
-
-- [ ] **Campaign Endpoints**
-  - [ ] POST /api/v1/campaigns/ (create)
-  - [ ] GET /api/v1/campaigns/{id}/ (progress)
-  - [ ] POST /api/v1/campaigns/{id}/close (close)
-
-- [ ] **Metrics Endpoints**
-  - [ ] GET /api/v1/metrics/mttr/
-  - [ ] GET /api/v1/metrics/velocity/
-  - [ ] GET /api/v1/metrics/capacity/
-  - [ ] GET /api/v1/metrics/sla/
-
-- [ ] **Ingestion Endpoints**
-  - [ ] POST /api/v1/ingest/upload/
-  - [ ] GET /api/v1/ingest/status/{id}/
-
-### API Features
-- [ ] Implement pagination
-- [ ] Add filtering and search
-- [ ] Create serializers for all models
-- [ ] Add API documentation (OpenAPI/Swagger)
-- [ ] Implement rate limiting
-- [ ] Add JWT authentication
-
----
-
-## 📊 Phase 3: Analytics & Reporting
-
-### Database Views for Remediation Performance
-
-#### MTTR Views
-- [ ] Create `mttr_overall` view:
-  - [ ] Calculate organisation-wide MTTR
-  - [ ] Include current period and previous period
-  - [ ] Add trend calculation
-- [ ] Create `mttr_by_business_group` view:
-  - [ ] Group MTTR by business group
-  - [ ] Include finding counts
-  - [ ] Add period comparisons
-- [ ] Create `mttr_by_risk_level` view:
-  - [ ] Group MTTR by severity levels
-  - [ ] Support filtering by date range
-  - [ ] Include trend percentages
-- [ ] Create `mttr_by_asset_type` view:
-  - [ ] Group MTTR by asset classification
-  - [ ] Include min/max/avg calculations
-- [ ] Create `mttr_over_time` view:
-  - [ ] Daily MTTR calculations
-  - [ ] Support for rolling averages
-  - [ ] Enable time series analysis
-
-#### Remediation Performance Views
-- [ ] Create `daily_remediation_stats` view:
-  - [ ] Count of findings fixed per day
-  - [ ] Average daily remediation rate
-  - [ ] Period-over-period comparisons
-- [ ] Create `remediation_by_business_group` view:
-  - [ ] Daily remediation counts by group
-  - [ ] Ranking calculations
-  - [ ] Trend analysis
-- [ ] Create `remediation_capacity` view:
-  - [ ] Daily introduced findings count
-  - [ ] Daily remediated findings count
-  - [ ] Capacity percentage calculation
-  - [ ] By risk level breakdown
-  - [ ] By asset type breakdown
-
-#### SLA Compliance Views
-- [ ] Create `sla_compliance_summary` view:
-  - [ ] Assets meeting SLA (count and %)
-  - [ ] Findings within SLA window
-  - [ ] By business group breakdown
-- [ ] Create `sla_breach_details` view:
-  - [ ] Findings exceeding SLA
-  - [ ] Days overdue buckets (1-7, 8-30, 31-90, >90)
-  - [ ] Percentage and count views
-- [ ] Create `sla_trend_analysis` view:
-  - [ ] Historical SLA compliance rates
-  - [ ] Trend calculations
-  - [ ] By risk level analysis
-
-### Time Period Functions
-- [ ] Create `get_period_range()` function:
-  - [ ] Support 7d, 30d, 90d, 1y, all time
-  - [ ] Return start and end dates
-  - [ ] Calculate previous period ranges
-- [ ] Create `calculate_trend()` function:
-  - [ ] Compare current vs previous period
-  - [ ] Return percentage change
-  - [ ] Indicate direction (improving/worsening)
-
-### Filtering Framework
-- [ ] Implement multi-dimensional filtering:
-  - [ ] Business group filter (single/multiple)
-  - [ ] Risk level filter (single/multiple)
-  - [ ] Asset type filter (single/multiple)
-  - [ ] Date range filter (preset and custom)
-  - [ ] Status filter (where applicable)
-- [ ] Create filter combination logic:
-  - [ ] AND/OR conditions
-  - [ ] Filter persistence
-  - [ ] Performance optimisation
-
-### Report Generation
-
-#### Executive Dashboard Implementation
-- [ ] Create KPI summary component:
-  - [ ] MTTR with trend arrow
-  - [ ] Daily remediation with trend
-  - [ ] Capacity percentage with trend
-  - [ ] SLA compliance with trend
-- [ ] Implement chart components:
-  - [ ] MTTR by business group (bar chart)
-  - [ ] Remediation capacity by risk (stacked bar)
-  - [ ] MTTR trend line chart
-  - [ ] SLA compliance gauge charts
-
-#### Operational Reports
-- [ ] **MTTR Deep Dive Report**:
-  - [ ] Tabular breakdown by all dimensions
-  - [ ] Sorting and filtering
-  - [ ] Export to CSV/PDF
-  - [ ] Drill-down capabilities
-- [ ] **Remediation Velocity Report**:
-  - [ ] Daily fix rate trends
-  - [ ] Capacity analysis graphs
-  - [ ] Business group rankings
-  - [ ] Peak/low performance identification
-- [ ] **SLA Breach Report**:
-  - [ ] Actionable finding list
-  - [ ] Overdue day calculations
-  - [ ] Priority sorting
-  - [ ] Bulk action capabilities
-- [ ] **Business Group Scorecard**:
-  - [ ] Comparative metrics table
-  - [ ] Performance rankings
-  - [ ] Trend indicators
-  - [ ] Executive summary
-
-### Performance Optimisation for Reporting
-- [ ] Create materialised views for:
-  - [ ] Daily MTTR calculations
-  - [ ] Remediation counts
-  - [ ] SLA compliance rates
-- [ ] Add report-specific indexes:
-  - [ ] `idx_findings_fixed_at`
-  - [ ] `idx_findings_first_seen_status`
-  - [ ] `idx_findings_business_group_severity`
-- [ ] Implement report caching:
-  - [ ] Cache calculated metrics
-  - [ ] Refresh on data changes
-  - [ ] TTL for different report types
-
-### Report API Endpoints
-- [ ] **MTTR Endpoints**:
-  - [ ] GET /api/v1/reports/mttr/overall
-  - [ ] GET /api/v1/reports/mttr/by-business-group
-  - [ ] GET /api/v1/reports/mttr/by-risk-level
-  - [ ] GET /api/v1/reports/mttr/by-asset-type
-  - [ ] GET /api/v1/reports/mttr/trends
-- [ ] **Remediation Performance Endpoints**:
-  - [ ] GET /api/v1/reports/remediation/daily-stats
-  - [ ] GET /api/v1/reports/remediation/capacity
-  - [ ] GET /api/v1/reports/remediation/velocity
-  - [ ] GET /api/v1/reports/remediation/rankings
-- [ ] **SLA Compliance Endpoints**:
-  - [ ] GET /api/v1/reports/sla/compliance
-  - [ ] GET /api/v1/reports/sla/breaches
-  - [ ] GET /api/v1/reports/sla/trends
-  - [ ] GET /api/v1/reports/sla/by-group
-
-### Report Export Functionality
-- [ ] CSV export for all reports
-- [ ] PDF generation with charts
-- [ ] Excel export with multiple sheets
-- [ ] Scheduled report delivery
-- [ ] Report templates
-
-### Historical Data Management
-- [ ] Create snapshot tables:
-  - [ ] `mttr_daily_snapshot`
-  - [ ] `remediation_daily_snapshot`
-  - [ ] `sla_compliance_snapshot`
-- [ ] Implement snapshot jobs:
-  - [ ] Daily metric calculation
-  - [ ] Data retention policies
-  - [ ] Compression for old data
-- [ ] Enable historical comparisons:
-  - [ ] Year-over-year analysis
-  - [ ] Seasonal trend detection
-  - [ ] Long-term performance tracking
+### Shared Components
+- [ ] Data table component
+- [ ] Filter sidebar
+- [ ] Status badge component
+- [ ] Export button
+- [ ] Loading states
 
 ---
 
-## ⚡ Phase 4: Performance & Scale
+## 📊 Phase 3: Analytics & Reporting (Days 11-12)
 
-### Database Optimisation
-- [ ] Add indexes per PRD Appendix C:
-  - [ ] Asset indexes (hostname, ip, cloud_id)
-  - [ ] Finding indexes (status, asset/vuln, severity)
-  - [ ] Vulnerability indexes (cve, external_id)
-- [ ] Implement query optimisation
-- [ ] Add connection pooling
-- [ ] Create archive strategy for old findings
+### Database Views
+- [ ] Create vulnerability_summary view
+- [ ] Create asset_risk_summary view
+- [ ] Create sla_compliance view
+- [ ] Create mttr_metrics view
 
-### Processing Optimisation
-- [ ] Implement batch processing for large files
-- [ ] Add async task processing (Celery)
-- [ ] Create progress tracking for imports
-- [ ] Implement chunked database operations
+### Report Implementation
+- [ ] MTTR calculation logic
+- [ ] SLA compliance percentages
+- [ ] Business group comparisons
+- [ ] Trend calculations (30/60/90 days)
+- [ ] CSV export functionality
 
-### Caching
-- [ ] Add Redis for query caching
-- [ ] Implement finding count caches
-- [ ] Add severity distribution caches
-- [ ] Create metric calculation caches
+### Dashboard Polish
+- [ ] Real-time metric updates
+- [ ] Responsive design
+- [ ] Print-friendly layouts
+- [ ] Chart interactions
 
 ---
 
-## 🔐 Phase 5: Security & Compliance
+## ✅ Phase 4: MVP Testing & Deployment (Days 13-14)
 
-### Security Hardening
-- [ ] Implement field-level encryption
-- [ ] Add comprehensive audit logging
-- [ ] Create security headers middleware
-- [ ] Implement input validation
-- [ ] Add SQL injection protection
+### Testing
+- [ ] End-to-end workflow tests
+- [ ] Performance testing (10K+ findings)
+- [ ] Multi-user access testing
+- [ ] Error handling validation
+- [ ] Cross-browser testing
 
-### Authentication & Authorisation
-- [ ] Implement JWT token management
-- [ ] Add role-based permissions
-- [ ] Create business group scoping
-- [ ] Implement field-level permissions
-- [ ] Add SSO preparation
-
----
-
-## 📦 Phase 6: Additional Scanner Support
-
-### Scanner Integrations
-- [ ] **Qualys Integration**
-  - [ ] Add field mappings
-  - [ ] Create severity mappings
-  - [ ] Implement QID handling
-  - [ ] Add API connector
-
-- [ ] **CrowdStrike Integration**
-  - [ ] Add field mappings
-  - [ ] Create severity mappings
-  - [ ] Implement finding correlation
-  - [ ] Add API connector
-
-- [ ] **Microsoft Defender Integration**
-  - [ ] Add field mappings
-  - [ ] Create severity mappings
-  - [ ] Implement KB handling
-  - [ ] Add API connector
-
----
-
-## ✅ Completed Items
-- Basic Django project structure
-- Initial models (partial implementation)
-- Scanner integration framework
-- Basic field mapping structure
-- Nessus file parsing (basic)
-- Django admin setup
-
----
-
-## 📋 Development Guidelines
-
-### Testing Requirements
-- [ ] Unit tests for deduplication logic
-- [ ] Integration tests for field mappings
-- [ ] API endpoint tests
-- [ ] Performance benchmarks
-- [ ] Security scan validation
-
-### Documentation Needs
+### Documentation
+- [ ] User quick start guide
+- [ ] Admin configuration guide
 - [ ] API documentation
-- [ ] Field mapping examples
 - [ ] Deployment guide
-- [ ] User manual
-- [ ] Developer setup guide
 
-### Performance Targets
-- Process 100,000 findings in < 15 minutes
-- Sub-second API response times
-- Support 100+ concurrent users
-- 99.5% uptime SLA
+### Deployment
+- [ ] Deploy Django to Heroku/Railway
+- [ ] Configure production settings
+- [ ] Set up SSL certificates
+- [ ] Configure backups
+- [ ] Set up monitoring
 
 ---
 
 ## 🚦 Priority Order
 
-1. **Complete**: Schema validation - confirmed production-ready
-2. **Immediate**: Scanner import pipeline (Phase 1.5) - Nessus parser with field mappings
-3. **High**: Asset deduplication and finding lifecycle
-4. **High**: API implementation for core resources
-5. **Medium**: Additional scanner support
-6. **Medium**: Performance optimisation
-7. **Low**: Advanced reporting features
+### MVP (2 Weeks)
+1. **Immediate**: Infrastructure setup and schema deployment
+2. **High**: Nessus parser and basic UI
+3. **High**: Dashboard and core reporting
+4. **Medium**: Testing and documentation
+
+### Post-MVP (Months 2-4)
+1. **Month 2**: Additional scanners, advanced deduplication
+2. **Month 3**: API development, campaign management
+3. **Month 4**: Enterprise features (SSO, multi-tenancy)
 
 ---
 
-## Notes
-- All schema changes must be backwards compatible
-- Use Django migrations for all database changes
-- Maintain API versioning from the start
-- Document all transformation rules
-- Keep JSONB fields for extensibility 
+## 📋 Feature Checklist (MVP Only)
+
+### Must Have ✅
+- [ ] Nessus file parsing
+- [ ] Asset/vulnerability/finding display
+- [ ] Basic risk scoring
+- [ ] Status tracking
+- [ ] MTTR reporting
+- [ ] SLA compliance
+- [ ] Business groups
+- [ ] CSV export
+
+### Nice to Have (If Time Permits)
+- [ ] Email notifications
+- [ ] Advanced filtering
+- [ ] Saved searches
+- [ ] User preferences
+- [ ] Activity logging
+
+### Not in MVP ❌
+- Automated workflows
+- Ticketing integration
+- Exception requests
+- Campaign management
+- Custom report builder
+- Additional scanners
+- Full REST API
+
+---
+
+## 📝 Technical Decisions
+
+### Architecture
+- **Hybrid approach**: Django for parsing, Supabase for CRUD
+- **Direct DB access**: lovable.dev connects directly to PostgreSQL
+- **Minimal API surface**: Only complex operations via Django
+
+### Technology Stack
+- **Backend**: Django 4.2 + PostgreSQL (Supabase)
+- **Frontend**: React (lovable.dev)
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase Storage
+- **Deployment**: Heroku/Railway + Supabase Cloud
+
+### Development Principles
+- **KISS**: Keep it simple for MVP
+- **Progressive Enhancement**: Basic features first
+- **User-Centric**: Focus on core workflows
+- **Performance**: Optimise for common operations
+
+---
+
+## 🎯 Success Metrics
+
+### Technical
+- Parse 100K findings in < 15 minutes
+- Sub-second page loads
+- 99%+ uptime
+- Zero data loss
+
+### Business
+- Complete MVP in 2 weeks
+- Support 100+ concurrent users
+- Handle 1M+ findings
+- Enable basic vulnerability management workflow
+
+---
+
+## 🔄 Post-MVP Roadmap
+
+See [PRODUCT_REQUIREMENTS_DOCUMENT.md](./PRODUCT_REQUIREMENTS_DOCUMENT.md) Section 7.5 for detailed post-MVP phases.
+
+Key themes:
+- **Phase 4**: Enhanced features (Month 2)
+- **Phase 5**: Enterprise features (Month 3)
+- **Phase 6**: Scale & security (Month 4)
+- **Phase 7**: Full API development (Month 5+)
+
+---
+
+*Last Updated: 2024-12-18* 

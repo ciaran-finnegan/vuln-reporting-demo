@@ -10,6 +10,22 @@ Planned features and improvements for the next release:
 - Consolidated duplicate PRD content and removed `docs/risk_radar_prd.md`
 - Updated TODO.md to reflect schema validation completion
 - Added Schema Validation section to main PRD
+- **Refocused on hybrid MVP architecture**:
+  - Clarified Supabase's role for direct CRUD operations
+  - Updated Django's scope to complex logic only (parsing, risk calculation, reporting)
+  - Moved comprehensive API development to post-MVP phase
+  - Restored lovable.dev as primary UI with dual data source capability
+- **Major PRD enhancements**:
+  - Added comprehensive Features Overview section detailing all platform capabilities
+  - Created detailed MVP Feature Matrix showing what's in/out of MVP scope
+  - Simplified Feature Specifications for MVP implementation
+  - Updated Implementation Guide with clear 14-day MVP timeline
+  - Added development best practices and security considerations
+- **TODO.md overhaul**:
+  - Aligned with MVP Feature Matrix from PRD
+  - Created clear day-by-day implementation schedule
+  - Added success metrics and technical decisions
+  - Simplified phases to match 2-week MVP timeline
 
 ### Features
 - Enhanced reporting and export options (PDF, CSV)

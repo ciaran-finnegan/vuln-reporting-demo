@@ -88,6 +88,5 @@
 
 ## Reference Documents
 
-- Always refer to `BACKEND_DEVELOPMENT_GUIDELINES.md` and `Rapid_MVP_App_Architecture.md` before suggesting or making backend changes.
-- For Nessus field extraction and mapping, see [nessus_extractor.py extraction script](https://github.com/ciaran-finnegan/nessus-reporting-metrics-demo/blob/main/etl/extractors/nessus_extractor.py).
+- Always refer to `BACKEND_DEVELOPMENT_GUIDELINES.md` and `PRODUCT_REQUIREMENTS_DOCUMENT.md` before suggesting or making backend changes.
 - These documents define the canonical structure and conventions for the backend. 

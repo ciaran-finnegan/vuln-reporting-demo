@@ -2,13 +2,14 @@
 
 ## Table of Contents
 1. [Executive Summary](#executive-summary)
-2. [System Architecture](#system-architecture)
-3. [Core Data Model](#core-data-model)
-4. [Feature Specifications](#feature-specifications)
-5. [Ingestion Architecture](#ingestion-architecture)
-6. [Implementation Guide](#implementation-guide)
-7. [Non-Functional Requirements](#non-functional-requirements)
-8. [Appendices](#appendices)
+2. [Features Overview](#features-overview)
+3. [System Architecture](#system-architecture)
+4. [Core Data Model](#core-data-model)
+5. [Feature Specifications](#feature-specifications)
+6. [Ingestion Architecture](#ingestion-architecture)
+7. [Implementation Guide](#implementation-guide)
+8. [Non-Functional Requirements](#non-functional-requirements)
+9. [Appendices](#appendices)
 
 ---
 
@@ -25,33 +26,190 @@ Risk Radar is a comprehensive vulnerability management platform that consolidate
 
 ---
 
+## Features Overview
+
+Risk Radar provides a comprehensive vulnerability management platform with features designed to streamline security operations from discovery through remediation. Based on industry best practices exemplified by [Vulcan Cyber ExposureOS](https://help.vulcancyber.com/en/), the platform delivers the following capabilities:
+
+### 🔍 Discovery & Ingestion
+- **Multi-Scanner Support**: Integrate any vulnerability scanner through configuration-driven field mappings
+- **Automated Asset Discovery**: Continuous asset inventory updates from multiple sources
+- **Smart Deduplication**: Sophisticated correlation logic prevents duplicate assets and vulnerabilities
+- **File Upload Interface**: Direct upload of scanner reports (Nessus, Qualys, etc.)
+- **Real-time Sync**: Automated connector scheduling with activity logging
+
+### 📊 Risk Management
+- **Business Context Integration**: Business Groups and Asset Tags for organisational alignment
+- **Dynamic Risk Scoring**: Multi-factor risk calculation combining severity, threats, and business impact
+- **Threat Intelligence**: Integration with exploit databases and threat feeds
+- **Vulnerability Prioritisation**: VPR-style scoring beyond basic CVSS
+- **Custom Risk Weights**: Configurable importance factors for your environment
+
+### 🎯 Asset Management
+- **Unified Asset Inventory**: Single source of truth across all scanners
+- **Multi-Type Support**: Hosts, websites, code repositories, containers, cloud resources
+- **Advanced Deduplication**: Priority-based matching (cloud ID → agent UUID → MAC → hostname → IP)
+- **Proactive Detach**: Automatic splitting of incorrectly merged assets
+- **Dynamic Properties**: Custom metadata and ownership assignment
+
+### 📈 Analytics & Reporting
+- **Executive Dashboard**: Real-time KPIs and risk trends
+- **MTTR Analytics**: Mean Time to Remediate by severity, group, and asset type
+- **SLA Compliance**: Track performance against defined service levels
+- **Remediation Velocity**: Daily/weekly/monthly fix rates and capacity analysis
+- **Custom Reports**: Self-service report builder with export capabilities
+- **Trend Analysis**: Historical comparisons with improvement tracking
+
+### 🔧 Remediation Management
+- **Campaign Tracking**: Group remediation efforts with progress monitoring
+- **Ticketing Integration**: JIRA, ServiceNow, Azure Boards connectors
+- **Remediation Work Form**: External user interface for collaboration
+- **Bulk Operations**: Mass status updates and assignments
+- **Due Date Management**: SLA-driven or manual deadline setting
+- **Fix Verification**: Automatic closure when vulnerabilities remediated
+
+### 🤖 Automation & Workflows
+- **Playbook Engine**: Condition-based automation for routine tasks
+- **Auto-Ticketing**: Create tickets based on vulnerability criteria
+- **Smart Updates**: Append new findings to existing tickets
+- **Notification System**: Email/Slack alerts for critical events
+- **Scheduled Actions**: Time-based automation triggers
+
+### 🛡️ Compliance & Governance
+- **Exception Requests**: Risk acceptance workflow with approvals
+- **Audit Trail**: Complete activity logging for compliance
+- **Role-Based Access**: Granular permissions by business group
+- **SLA Policies**: Configurable by severity and business group
+- **Compliance Reports**: Pre-built templates for common frameworks
+
+### 🔐 Security & Administration
+- **SSO Integration**: SAML/OIDC support for enterprise authentication
+- **Row-Level Security**: Database-enforced access controls
+- **API Access**: RESTful APIs for integration and automation
+- **Multi-Tenancy**: Logical separation of business units
+- **Backup & Recovery**: Automated backup with point-in-time recovery
+
+---
+
+## MVP Feature Matrix
+
+The following table outlines which features will be implemented in the MVP phase versus future releases:
+
+| Feature Category | Feature | MVP | Future | Notes |
+|-----------------|---------|-----|---------|-------|
+| **Discovery & Ingestion** | | | | |
+| | Nessus file upload & parsing | ✅ | | Core MVP requirement |
+| | Qualys integration | ❌ | ✅ | Phase 3 |
+| | CrowdStrike integration | ❌ | ✅ | Phase 3 |
+| | Real-time connector sync | ❌ | ✅ | Manual upload only in MVP |
+| | Connector activity logging | ✅ | | Basic logging via Django |
+| **Risk Management** | | | | |
+| | Basic risk scoring (severity-based) | ✅ | | Simplified formula |
+| | Threat intelligence integration | ❌ | ✅ | Phase 4 |
+| | Custom risk weights | ✅ | | Via Django admin |
+| | VPR-style scoring | ❌ | ✅ | CVSS only in MVP |
+| **Asset Management** | | | | |
+| | Asset CRUD operations | ✅ | | Via Supabase direct access |
+| | Basic deduplication | ✅ | | Hostname + IP matching |
+| | Advanced deduplication | ❌ | ✅ | Full algorithm in Phase 2 |
+| | Proactive detach | ❌ | ✅ | Phase 3 |
+| | Business Groups | ✅ | | Essential for MVP |
+| | Asset Tags | ✅ | | Manual tagging only |
+| | Dynamic properties | ❌ | ✅ | Phase 4 |
+| **Analytics & Reporting** | | | | |
+| | Basic dashboard | ✅ | | Key metrics only |
+| | MTTR reporting | ✅ | | Core KPI |
+| | SLA compliance tracking | ✅ | | Basic implementation |
+| | Remediation velocity | ❌ | ✅ | Phase 3 |
+| | Custom report builder | ❌ | ✅ | Phase 5 |
+| | Export to CSV | ✅ | | Basic export |
+| **Remediation Management** | | | | |
+| | Manual status updates | ✅ | | Via Supabase UI |
+| | Campaign management | ❌ | ✅ | Phase 4 |
+| | Ticketing integration | ❌ | ✅ | Phase 4 |
+| | Bulk operations | ✅ | | Basic bulk update |
+| | Fix verification | ✅ | | Status tracking only |
+| **Automation** | | | | |
+| | Playbook engine | ❌ | ✅ | Phase 5 |
+| | Auto-ticketing | ❌ | ✅ | Phase 5 |
+| | Email notifications | ❌ | ✅ | Phase 4 |
+| | Scheduled imports | ❌ | ✅ | Phase 3 |
+| **Compliance** | | | | |
+| | Exception requests | ❌ | ✅ | Phase 4 |
+| | Basic audit logging | ✅ | | Django logging |
+| | Advanced audit trail | ❌ | ✅ | Phase 5 |
+| | Compliance reports | ❌ | ✅ | Phase 5 |
+| **Security & Admin** | | | | |
+| | JWT authentication | ✅ | | Via Supabase |
+| | Row-level security | ✅ | | Supabase RLS |
+| | Basic role management | ✅ | | Admin/User roles |
+| | Advanced RBAC | ❌ | ✅ | Phase 5 |
+| | SSO integration | ❌ | ✅ | Phase 6 |
+| | REST API (minimal) | ✅ | | Upload & reports only |
+| | Full REST API | ❌ | ✅ | Phase 7 |
+| **UI/UX** | | | | |
+| | lovable.dev UI | ✅ | | Rapid development |
+| | Mobile responsive | ✅ | | Built-in with lovable |
+| | Dark mode | ❌ | ✅ | Future enhancement |
+| | Custom branding | ❌ | ✅ | Enterprise feature |
+
+### MVP Success Criteria
+The MVP will be considered successful when it can:
+1. ✅ Import and parse Nessus scan files
+2. ✅ Display vulnerabilities and affected assets with filtering
+3. ✅ Calculate basic risk scores
+4. ✅ Track remediation progress with status updates
+5. ✅ Show MTTR and SLA compliance metrics
+6. ✅ Support business groups for organisational context
+7. ✅ Provide basic user access control
+8. ✅ Export data for external reporting
+
+---
+
 ## System Architecture
 
-### Technical Stack
-- **Database**: PostgreSQL (via Supabase) with JSONB for extensibility
-- **Backend**: Django for business logic, admin interface, and API
-- **Frontend**: lovable.dev for rapid UI development
-- **Storage**: Supabase Storage for scanner files
+### Technical Stack (Hybrid Architecture)
+- **Database**: PostgreSQL (managed by Supabase) with JSONB for extensibility
 - **Authentication**: Supabase Auth with JWT tokens
+- **Storage**: Supabase Storage for scanner files
+- **Direct CRUD**: Supabase auto-generated APIs for basic operations
+- **Complex Logic**: Django for parsing, risk calculation, reporting
+- **Frontend**: lovable.dev for rapid UI development
+- **Background Jobs**: Django-Q with Redis for async processing
+
+### MVP Architecture Philosophy
+The MVP leverages Supabase's capabilities to minimise backend development:
+- **Direct Database Access**: lovable.dev connects directly to Supabase for most CRUD operations
+- **Row Level Security**: Supabase RLS policies handle data access control
+- **Minimal API Surface**: Django provides endpoints only for complex operations that can't be handled by direct DB access
+- **Rapid Development**: lovable.dev's visual builder accelerates UI creation
 
 ### Data Flow Architecture
 ```
-┌─────────────────┐     ┌────────────────┐     ┌──────────────┐
-│ Scanner Sources │────▶│ Ingestion      │────▶│ PostgreSQL   │
-│ (Nessus, etc)  │     │ Pipeline       │     │ Database     │
-└─────────────────┘     └────────────────┘     └──────────────┘
-                               │                        │
-                               ▼                        ▼
-                        ┌────────────────┐      ┌──────────────┐
-                        │ Field Mapping  │      │ REST API     │
-                        │ & Normalisation│      │ (Django)     │
-                        └────────────────┘      └──────────────┘
+┌─────────────────┐     ┌────────────────┐     ┌──────────────────┐
+│ Scanner Sources │────▶│ Django         │────▶│ PostgreSQL       │
+│ (Nessus files) │     │ (Parser)       │     │ (Supabase)       │
+└─────────────────┘     └────────────────┘     └──────────────────┘
                                                        │
                                                        ▼
-                                                ┌──────────────┐
-                                                │ UI Layer     │
-                                                │ (lovable.dev)│
-                                                └──────────────┘
+                        ┌────────────────┐      ┌──────────────────┐
+                        │ Supabase Auth  │      │ lovable.dev UI   │
+                        │ & Storage      │◀────▶│ - Direct DB CRUD │
+                        └────────────────┘      │ - Django APIs    │
+                                                └──────────────────┘
+```
+
+### Django API Endpoints (MVP - Minimal Set)
+```
+# File Operations
+POST   /api/v1/upload/nessus        # Upload & parse Nessus file
+
+# Complex Operations  
+POST   /api/v1/risk/calculate       # Recalculate risk scores
+GET    /api/v1/reports/sla          # SLA compliance report
+GET    /api/v1/reports/mttr         # MTTR metrics
+POST   /api/v1/campaigns/create     # Create remediation campaign
+
+# All other CRUD operations handled directly via Supabase
 ```
 
 ---
@@ -255,214 +413,155 @@ The schema is **production-ready** for the MVP and future scanner integrations.
 
 ## Feature Specifications
 
+This section details the core features that will be implemented in the MVP, focusing on the essential capabilities needed for a functional vulnerability management platform.
+
 ### 4.1 Asset Management & Deduplication
 
-#### Deduplication Algorithm
+#### Core Functionality (MVP)
+- **Asset Types**: Support for hosts (physical/virtual servers, workstations)
+- **Basic Deduplication**: Match assets by hostname + IP combination
+- **Manual Tagging**: Add tags via UI for categorisation
+- **Business Groups**: Assign assets to organisational units
+- **CRUD Operations**: Direct database operations via Supabase
+
+#### Deduplication Algorithm (Simplified for MVP)
 ```python
-# Pseudocode for asset deduplication
-def deduplicate_asset(incoming_asset):
-    # Priority 1: Cloud instance ID
-    if incoming_asset.cloud_instance_id:
-        existing = find_by_cloud_id(incoming_asset.cloud_instance_id)
-        if existing:
-            return merge_assets(existing, incoming_asset)
-    
-    # Priority 2: Agent UUID
-    if incoming_asset.agent_uuid:
-        existing = find_by_agent_uuid(incoming_asset.agent_uuid)
-        if existing:
-            return merge_assets(existing, incoming_asset)
-    
-    # Priority 3: MAC + Hostname
-    if incoming_asset.mac_address and incoming_asset.hostname:
-        existing = find_by_mac_hostname(incoming_asset.mac_address, 
-                                       incoming_asset.hostname)
-        if existing:
-            return merge_assets(existing, incoming_asset)
-    
-    # Priority 4: Hostname + IP
+# MVP implementation - basic matching only
+def deduplicate_asset_mvp(incoming_asset):
+    # Simple hostname + IP matching
     if incoming_asset.hostname and incoming_asset.ip_address:
         existing = find_by_hostname_ip(incoming_asset.hostname, 
                                      incoming_asset.ip_address)
         if existing:
             return merge_assets(existing, incoming_asset)
     
-    # Priority 5: IP only
-    if incoming_asset.ip_address:
-        existing = find_by_ip(incoming_asset.ip_address)
-        if existing and not existing.hostname:  # Only merge if no hostname
-            return merge_assets(existing, incoming_asset)
-    
-    # No match found - create new asset
+    # Create new asset if no match
     return create_asset(incoming_asset)
 ```
 
-#### Proactive Detach
-A scheduled job continuously evaluates merged assets for identifier conflicts:
-- If hostname now points to different cloud ID → split asset
-- If MAC address moves to different hostname → split asset
-- Findings are reallocated to maintain data integrity
+#### Future Enhancements
+The full deduplication algorithm with cloud IDs, agent UUIDs, and MAC addresses will be implemented post-MVP as shown in the original specification.
 
 ### 4.2 Vulnerability Management
 
-#### Vulnerability Deduplication
-- **CVE-based**: All findings with same CVE map to single vulnerability record
-- **Scanner-specific**: (external_source, external_id) prevents duplicates from same scanner
-- **Cross-scanner**: Manual mapping or pattern matching for non-CVE issues
+#### MVP Implementation
+- **CVE Tracking**: Store and deduplicate by CVE identifier
+- **Basic Severity**: Use CVSS scores from scanners
+- **Scanner Mapping**: Nessus plugin IDs via field_mapping table
+- **Status Tracking**: Open, Fixed, Risk Accepted states
 
-#### Severity Normalisation
-Internal 0-10 scale with standard labels:
-- 10 = Critical
-- 8 = High  
-- 5 = Medium
-- 3 = Low
-- 0 = Informational
+#### Severity Normalisation (MVP)
+Simple mapping to 4 levels:
+- Critical: CVSS 9.0-10.0
+- High: CVSS 7.0-8.9
+- Medium: CVSS 4.0-6.9
+- Low: CVSS 0.0-3.9
 
-### 4.3 Risk Scoring
+### 4.3 Risk Scoring (Simplified for MVP)
 
-#### Formula
+#### MVP Formula
 ```
-Risk Score = (Severity × 0.45) + (Threat × 0.35) + (Impact × 0.20)
+Risk Score = CVSS Score × Business Group Criticality
 
 Where:
-- Severity = Normalised vulnerability severity (0-10)
-- Threat = Exploit availability and active exploitation (0-10)
-- Impact = Asset criticality × exposure factor (0-10)
+- CVSS Score = 0-10 from scanner
+- Business Group Criticality = 1.0 (normal) or 1.5 (critical)
 ```
 
-### 4.4 SLA Management
+#### Future Enhancement
+Post-MVP will implement the full formula with threat intelligence and multi-factor scoring as originally specified.
 
-#### Policy Configuration
+### 4.4 Business Groups & Asset Tagging
+
+#### MVP Features
+- **Create Business Groups**: Via Django admin or Supabase UI
+- **Assign Criticality**: Normal or Critical designation
+- **Asset Assignment**: Manual assignment through UI
+- **Tag Creation**: Free-form tags for filtering
+- **Basic Filtering**: Filter all views by business group
+
+#### Supported Asset Types (MVP)
+- **Hosts Only**: Physical servers, VMs, workstations
+- Future phases will add: Code projects, websites, containers, cloud resources
+
+### 4.5 SLA Management (Basic MVP)
+
+#### MVP Implementation
 ```json
 {
-  "business_group": "Production",
-  "sla_days": {
-    "Critical": 1,
-    "High": 7,
-    "Medium": 30,
-    "Low": 90,
-    "Info": 365
-  }
+  "sla_policies": [
+    {
+      "severity": "Critical",
+      "days": 7,
+      "business_group": "all"
+    },
+    {
+      "severity": "High", 
+      "days": 30,
+      "business_group": "all"
+    }
+  ]
 }
 ```
 
 #### Compliance Tracking
-- **Compliant**: Within SLA window
-- **At Risk**: > 80% of SLA consumed
-- **Breached**: Past due date
+- **Simple Status**: Within SLA / Overdue
+- **Basic Reporting**: Count and percentage compliance
+- **Manual Configuration**: Via Django admin
 
-### 4.5 Remediation Campaigns
+### 4.6 Remediation Tracking (MVP)
 
-#### Campaign Lifecycle
-1. Create campaign with finding selection criteria
-2. Optional: Generate JIRA/ServiceNow tickets
-3. Track progress as findings are marked fixed
-4. Auto-close when all findings remediated
+#### Basic Features
+- **Status Updates**: Mark findings as fixed/risk accepted
+- **Bulk Operations**: Update multiple findings at once
+- **Progress Tracking**: Simple percentage complete
+- **Export**: CSV export of current status
 
-### 4.6 Remediation Performance Reporting
+#### Not in MVP
+- Campaign management
+- Ticketing integration
+- Automated workflows
+- Remediation work forms
 
-Based on industry-standard KPIs, the platform provides comprehensive remediation performance metrics with multi-dimensional filtering and trend analysis.
+### 4.7 Reporting & Analytics
 
-#### Core KPIs
+#### MVP Reports
 
-##### MTTR (Mean Time to Remediate)
-- **Definition**: Average days from first_seen to fixed_at
-- **Calculation**: `AVG(fixed_at - first_seen)` for findings with status='fixed'
-- **Dimensions**:
-  - Overall organisation MTTR
-  - By Business Group
-  - By Risk Level (Critical, High, Medium, Low)
-  - By Asset Type
-  - Over time (daily/weekly/monthly trends)
-- **Target**: Lower MTTR indicates better performance
+##### Dashboard Widgets
+1. **Summary Stats**
+   - Total vulnerabilities by severity
+   - Total assets
+   - Findings past SLA
+   - Overall risk score
 
-##### Average Daily Remediation
-- **Definition**: Average count of findings fixed per day
-- **Calculation**: `COUNT(findings WHERE fixed_at = date) / days in period`
-- **Dimensions**:
-  - By Business Group (with ranking)
-  - By Risk Level
-  - By Asset Type
-- **Target**: Higher count indicates better throughput
+2. **MTTR Report**
+   - Average days to remediate
+   - By severity level
+   - By business group
+   - Last 30/60/90 days
 
-##### Remediation Capacity
-- **Definition**: Percentage of introduced findings that are remediated
-- **Calculation**: `(Avg Daily Remediated / Avg Daily Introduced) × 100`
-- **Dimensions**:
-  - Overall capacity percentage
-  - By Risk Level
-  - By Asset Type
-- **Target**: ≥100% indicates keeping pace with new findings
+3. **SLA Compliance**
+   - Percentage meeting SLA
+   - Count overdue by severity
+   - Trend chart (simple)
 
-> **Note**: Campaign Coverage metrics are excluded from MVP as campaign management is not in initial scope.
+4. **Top Risks**
+   - Most critical vulnerabilities
+   - Most affected assets
+   - Highest risk business groups
 
-#### SLA Compliance Reporting
+##### Data Access
+- **Direct SQL**: Supabase allows direct SQL queries
+- **CSV Export**: All data exportable
+- **Real-time**: Live data, no batch processing
 
-##### Assets Compliant with SLA
-- **Definition**: Percentage of assets meeting SLA requirements
-- **Calculation**: Assets with all findings within SLA window
-- **Dimensions**:
-  - By Business Group
-  - By Risk Level
-  - Trend over time
-
-##### Findings Exceeding SLA
-- **Percentage View**: `(Findings past due / Total findings) × 100`
-- **Count View**: Absolute number of breached findings
-- **Dimensions**:
-  - By Business Group
-  - By Risk Level
-  - By Days Overdue (1-7, 8-30, 31-90, >90)
-
-#### Filtering & Time Ranges
-
-##### Standard Time Periods
-- Last 7 days
-- Last 30 days
-- Last 90 days
-- Last 1 year
-- All time
-
-##### Trend Comparisons
-For each metric and time period:
-- **Current Period Value**: The metric for selected period
-- **Previous Period Value**: Same metric for equivalent previous period
-- **Trend Percentage**: `((Current - Previous) / Previous) × 100`
-- **Trend Direction**: Improving ↓, Worsening ↑, or Stable →
-
-##### Filter Combinations
-All metrics support filtering by:
-- Business Group (single or multiple)
-- Risk Level (single or multiple)
-- Asset Type (single or multiple)
-- Date Range (with custom date selection)
-- Finding Status (for applicable metrics)
-
-#### Report Views
-
-##### Executive Dashboard
-```
-┌─────────────────────────────────────────────────────────┐
-│ MTTR: 15.5 days ↓12%  │ Daily Remediation: 142 ↑8%     │
-│ Capacity: 95% ↓2%     │ SLA Compliance: 87% ↑5%        │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────┬───────────────────────────────┐
-│ MTTR by Business Group  │ Remediation Capacity by Risk  │
-│ [Bar Chart]             │ [Stacked Bar Chart]           │
-└─────────────────────────┴───────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│ MTTR Trend (Last 90 Days)                               │
-│ [Line Chart with Critical/High/Medium/Low]              │
-└─────────────────────────────────────────────────────────┘
-```
-
-##### Operational Reports
-- **MTTR Deep Dive**: Detailed breakdown by all dimensions
-- **Remediation Velocity**: Daily fix rates with capacity analysis
-- **SLA Breach Report**: Actionable list of overdue findings
-- **Business Group Scorecard**: Comparative performance metrics
+#### Future Analytics
+Post-MVP phases will add:
+- Remediation velocity metrics
+- Capacity planning
+- Custom report builder
+- Executive PowerBI-style dashboards
+- Automated report distribution
 
 ---
 
@@ -586,26 +685,183 @@ INSERT INTO severity_mapping (integration_id, external_severity, internal_severi
 
 ## Implementation Guide
 
-### 6.1 Phase 1: Core Platform (MVP)
-- Scanner integration framework with Nessus support
-- Asset and vulnerability management with deduplication
-- Basic finding lifecycle (open → fixed)
-- Business groups and SLA policies
-- Django admin for configuration
+### 7.1 MVP Architecture Overview
 
-### 6.2 Phase 2: Advanced Features
-- Additional scanner integrations (Qualys, CrowdStrike, Defender)
-- Remediation campaigns with ticket integration
-- Performance metrics (MTTR, velocity, capacity)
-- REST API implementation
-- lovable.dev UI integration
+The MVP uses a hybrid approach to minimise development time while delivering core functionality:
 
-### 6.3 Phase 3: Enterprise Features
-- SSO integration (SAML, OIDC)
-- Advanced RBAC with field-level permissions
-- Automated workflows and playbooks
-- Custom reporting builder
-- Multi-tenancy support
+```
+┌─────────────────┐     ┌──────────────┐     ┌──────────────────┐
+│ Nessus Files    │────▶│ Django       │────▶│ PostgreSQL       │
+│ (Manual Upload) │     │ (Parser Only)│     │ (Supabase)       │
+└─────────────────┘     └──────────────┘     └──────────────────┘
+                                                      │
+                                                      ▼
+                        ┌──────────────┐      ┌──────────────────┐
+                        │ Supabase     │◀────▶│ lovable.dev UI   │
+                        │ - Auth       │      │ - Direct CRUD    │
+                        │ - Storage    │      │ - Dashboard      │
+                        │ - RLS        │      │ - Reporting      │
+                        └──────────────┘      └──────────────────┘
+```
+
+### 7.2 Phase 1: Infrastructure Setup (Days 1-3)
+
+#### Database Deployment
+1. **Create Supabase Project**
+   - Set up PostgreSQL database
+   - Enable authentication
+   - Configure storage buckets
+
+2. **Deploy Schema**
+   ```sql
+   -- Run schema creation scripts
+   -- Create tables: assets, vulnerabilities, findings, etc.
+   -- Set up field_mapping and severity_mapping tables
+   -- Configure RLS policies
+   ```
+
+3. **Initial Data Load**
+   - Populate Nessus field mappings
+   - Set up default SLA policies
+   - Create initial business groups
+
+#### Django Setup
+1. **Minimal Django Project**
+   ```
+   riskradar/
+   ├── core/
+   │   ├── models.py      # Mirror Supabase schema
+   │   ├── parsers/       # Nessus parser
+   │   └── admin.py       # Basic admin interface
+   ├── api/
+   │   └── views.py       # Minimal endpoints
+   └── settings.py        # Supabase connection
+   ```
+
+2. **Key Endpoints Only**
+   - `POST /api/upload/nessus` - Parse and ingest files
+   - `GET /api/reports/mttr` - Calculate MTTR metrics
+   - `GET /api/reports/sla` - SLA compliance data
+
+### 7.3 Phase 2: Core Functionality (Days 4-10)
+
+#### Supabase Configuration
+1. **Row Level Security**
+   ```sql
+   -- Basic RLS for multi-user access
+   CREATE POLICY "Users can view all data" ON assets
+     FOR SELECT USING (true);
+   
+   CREATE POLICY "Users can update findings" ON findings
+     FOR UPDATE USING (auth.uid() IS NOT NULL);
+   ```
+
+2. **Database Functions**
+   ```sql
+   -- Create views for common queries
+   CREATE VIEW vulnerability_summary AS
+   SELECT 
+     v.vulnerability_id,
+     v.title,
+     v.cvss_score,
+     COUNT(f.finding_id) as affected_assets,
+     MAX(f.risk_score) as max_risk
+   FROM vulnerabilities v
+   JOIN findings f ON v.vulnerability_id = f.vulnerability_id
+   WHERE f.status = 'open'
+   GROUP BY v.vulnerability_id;
+   ```
+
+#### lovable.dev UI Development
+1. **Core Pages**
+   - Dashboard with key metrics
+   - Assets table with filtering
+   - Vulnerabilities table with search
+   - Findings view with status updates
+   - Basic reporting page
+
+2. **Key Features**
+   - File upload component
+   - Bulk status updates
+   - Business group filtering
+   - Export to CSV
+   - Responsive design
+
+### 7.4 Phase 3: MVP Completion (Days 11-14)
+
+#### Integration Testing
+1. **End-to-End Workflows**
+   - Upload Nessus file → Parse → View results
+   - Update finding status → Verify metrics update
+   - Apply filters → Export data
+   - Create business groups → Assign assets
+
+2. **Performance Validation**
+   - Test with 10,000+ findings
+   - Verify sub-second query response
+   - Validate concurrent user access
+
+#### Documentation & Deployment
+1. **User Documentation**
+   - Quick start guide
+   - Video walkthrough
+   - FAQ section
+
+2. **Deployment**
+   - Django on Heroku/Railway
+   - Supabase cloud instance
+   - lovable.dev hosting
+   - SSL certificates
+
+### 7.5 Post-MVP Roadmap
+
+#### Phase 4: Enhanced Features (Month 2)
+- Additional scanner support (Qualys)
+- Advanced deduplication algorithm
+- Email notifications
+- Basic automation rules
+
+#### Phase 5: Enterprise Features (Month 3)
+- Full REST API
+- Campaign management
+- Ticketing integration
+- Custom report builder
+
+#### Phase 6: Scale & Security (Month 4)
+- SSO integration
+- Advanced RBAC
+- Performance optimisation
+- Multi-tenancy
+
+### 7.6 Development Best Practices
+
+#### Code Organisation
+```
+# Django: Minimal, focused on parsing
+riskradar/
+├── parsers/          # Scanner-specific parsers
+├── mappings/         # Field mapping logic
+└── reports/          # MTTR/SLA calculations
+
+# Frontend: Component-based
+components/
+├── Dashboard/        # Metric widgets
+├── Tables/          # Reusable data tables
+└── Reports/         # Chart components
+```
+
+#### Testing Strategy
+- Unit tests for parsers
+- Integration tests for data flow
+- UI tests for critical paths
+- Load tests for performance
+
+#### Security Considerations
+- All data access through RLS
+- JWT tokens with short expiry
+- Audit logging on all changes
+- Encrypted file uploads
+- OWASP Top 10 compliance
 
 ---
 
