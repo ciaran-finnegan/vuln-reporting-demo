@@ -278,4 +278,31 @@ Key themes:
 
 ---
 
+## Migration and Refactoring of Existing AssetType Table
+
+**Migration Steps:**
+1. **Backup Existing Data:**  
+   - Export all current `AssetType` records for reference and rollback.
+
+2. **Schema Migration:**  
+   - Rename or deprecate the current `AssetType` table.
+   - Create new `asset_categories` and `asset_subtypes` tables as per the enhanced schema.
+   - Migrate existing `AssetType` values to the new `asset_categories` table (e.g., Host, Website, Container, Code, Cloud).
+   - For each category, populate standard subtypes (from `ASSET_TYPES.md`).
+
+3. **Data Migration:**  
+   - Update all existing `Asset` records to reference the new `category_id` and (where possible) `subtype_id`.
+   - If subtype cannot be determined, set to NULL or a default value.
+
+4. **Code & Admin Refactor:**  
+   - Update Django models and admin to use the new tables.
+   - Remove or archive the old `AssetType` model after migration is verified.
+
+5. **Validation:**  
+   - Ensure all assets have a valid category.
+   - Spot-check that subtypes are correctly assigned where possible.
+
+**Rollback Plan:**
+- If issues arise, restore the original `AssetType` table and revert asset references.
+
 *Last Updated: 2025-01-02* 

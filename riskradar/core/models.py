@@ -18,9 +18,54 @@ class AssetType(models.Model):
     def __str__(self):
         return self.name
 
+class AssetCategory(models.Model):
+    category_id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'asset_category'
+        verbose_name = 'Asset Category'
+        verbose_name_plural = 'Asset Categories'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+class AssetSubtype(models.Model):
+    subtype_id = models.AutoField(primary_key=True)
+    category = models.ForeignKey(AssetCategory, on_delete=models.CASCADE, related_name='subtypes')
+    name = models.CharField(max_length=100)
+    cloud_provider = models.CharField(max_length=20, null=True, blank=True,
+                                    help_text="AWS, Azure, GCP (for Cloud Resource category)")
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'asset_subtype'
+        verbose_name = 'Asset Subtype'
+        verbose_name_plural = 'Asset Subtypes'
+        ordering = ['category', 'name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['category', 'name', 'cloud_provider'],
+                name='unique_subtype_per_category'
+            ),
+        ]
+
+    def __str__(self):
+        if self.cloud_provider:
+            return f"{self.category.name} - {self.name} ({self.cloud_provider})"
+        return f"{self.category.name} - {self.name}"
+
 class Asset(models.Model):
     name = models.CharField(max_length=255)
-    asset_type = models.ForeignKey(AssetType, on_delete=models.PROTECT)
+    # Legacy field - kept for backward compatibility during migration
+    asset_type = models.ForeignKey(AssetType, on_delete=models.PROTECT, null=True, blank=True)
+    # New enhanced fields
+    category = models.ForeignKey(AssetCategory, on_delete=models.PROTECT, related_name='assets')
+    subtype = models.ForeignKey(AssetSubtype, on_delete=models.SET_NULL, related_name='assets', null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     hostname = models.CharField(max_length=255, null=True, blank=True)
     operating_system = models.CharField(max_length=100, null=True, blank=True)
@@ -41,7 +86,13 @@ class Asset(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} ({self.asset_type.name})"
+        if self.subtype:
+            return f"{self.name} ({self.subtype.name})"
+        elif self.category:
+            return f"{self.name} ({self.category.name})"
+        elif self.asset_type:  # Fallback for legacy data
+            return f"{self.name} ({self.asset_type.name})"
+        return self.name
 
 class Vulnerability(models.Model):
     external_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)
@@ -87,6 +138,9 @@ class ScannerIntegration(models.Model):
     name = models.CharField(max_length=100, unique=True)
     type = models.CharField(max_length=50, default='vuln_scanner',
                           help_text="e.g., 'vuln_scanner', 'asset_inventory'")
+    default_asset_category = models.ForeignKey(AssetCategory, on_delete=models.SET_NULL, 
+                                             null=True, blank=True,
+                                             help_text="Default category for assets from this scanner")
     version = models.CharField(max_length=50, null=True, blank=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -138,12 +192,16 @@ class Finding(models.Model):
         return f"{self.vulnerability.title} on {self.asset.name}"
 
     def save(self, *args, **kwargs):
-        # Simple risk calculation for MVP
+        # Simple risk calculation for MVP (cap at 999.99 to prevent overflow)
         if not self.risk_score and self.vulnerability.severity_level:
-            self.risk_score = self.vulnerability.severity_level * 10
+            try:
+                severity_level = float(self.vulnerability.severity_level)
+                self.risk_score = min(severity_level * 10, 999.99)
+            except (ValueError, TypeError):
+                self.risk_score = 50  # Default fallback
         elif not self.risk_score:
             severity_scores = {'Critical': 10, 'High': 8, 'Medium': 5, 'Low': 2, 'Info': 1}
-            self.risk_score = severity_scores.get(self.vulnerability.severity, 0) * 10
+            self.risk_score = min(severity_scores.get(self.vulnerability.severity, 0) * 10, 999.99)
         # Update severity_level if not set
         if not self.severity_level and self.vulnerability.severity_level:
             self.severity_level = self.vulnerability.severity_level

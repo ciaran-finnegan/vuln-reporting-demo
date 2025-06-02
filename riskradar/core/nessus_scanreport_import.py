@@ -1,7 +1,8 @@
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
 from django.utils import timezone
-from core.models import ScannerIntegration, FieldMapping, SeverityMapping, AssetType, Asset, Vulnerability, Finding
+from core.models import (ScannerIntegration, FieldMapping, SeverityMapping, AssetType, 
+                        AssetCategory, AssetSubtype, Asset, Vulnerability, Finding)
 from django.db import transaction
 import json
 import logging
@@ -19,6 +20,12 @@ class ScannerImporter:
         self.integration = ScannerIntegration.objects.get(name=integration_name, is_active=True)
         self.field_mappings = self._load_field_mappings()
         self.severity_mappings = self._load_severity_mappings()
+        # Cache asset categories and subtypes for performance
+        self._asset_categories = {cat.name: cat for cat in AssetCategory.objects.all()}
+        self._asset_subtypes = {
+            (sub.category.name, sub.name): sub 
+            for sub in AssetSubtype.objects.select_related('category')
+        }
         self.tree: Optional[ET.ElementTree] = None
         self.root: Optional[ET.Element] = None
         self.created_assets = 0
@@ -43,10 +50,100 @@ class ScannerImporter:
             for sm in self.integration.severity_mappings.filter(is_active=True)
         }
 
+    def _apply_nessus_system_type_mapping(self, system_type_value):
+        """Map Nessus system-type to AssetSubtype ID."""
+        if not system_type_value:
+            return None
+            
+        # Define mapping from Nessus system-type to our subtypes
+        nessus_to_subtype_mapping = {
+            'general-purpose': 'Server',
+            'embedded': 'Appliance',
+            'router': 'Router',
+            'switch': 'Switch',
+            'firewall': 'Firewall',
+            'load-balancer': 'Load Balancer',
+            'storage': 'Storage Device',
+            'printer': 'Printer',
+            'scanner': 'Scanner',
+            'wireless-access-point': 'Network Device',
+            'voip-adapter': 'Network Device',
+            'voip-phone': 'Network Device',
+            'webcam': 'IoT Device',
+            'game-console': 'IoT Device',
+            'media-device': 'IoT Device',
+            'terminal-server': 'Server',
+            'hypervisor': 'Virtual Machine',
+            'virtualization': 'Virtual Machine',
+            'scada': 'IoT Device',
+            'broadband-router': 'Router',
+            'PoS': 'Appliance',
+            'VNC': 'Server',
+            'X11': 'Workstation',
+            'Windows': 'Workstation',
+            'Linux': 'Server',
+            'Unix': 'Server',
+            'Mac': 'Workstation',
+        }
+        
+        # Try exact match first
+        subtype_name = nessus_to_subtype_mapping.get(system_type_value)
+        if not subtype_name:
+            # Try partial matches for common patterns
+            lower_type = system_type_value.lower()
+            if 'server' in lower_type or 'linux' in lower_type or 'unix' in lower_type:
+                subtype_name = 'Server'
+            elif 'router' in lower_type:
+                subtype_name = 'Router'
+            elif 'switch' in lower_type:
+                subtype_name = 'Switch'
+            elif 'firewall' in lower_type:
+                subtype_name = 'Firewall'
+            elif 'windows' in lower_type or 'workstation' in lower_type:
+                subtype_name = 'Workstation'
+            elif 'printer' in lower_type:
+                subtype_name = 'Printer'
+            elif 'storage' in lower_type or 'nas' in lower_type:
+                subtype_name = 'Storage Device'
+            else:
+                # Default to Server for unknown types
+                subtype_name = 'Server'
+        
+        # Look up the subtype ID
+        subtype = self._asset_subtypes.get(('Host', subtype_name))
+        return subtype.subtype_id if subtype else None
+
+    def _get_default_scanner_category(self):
+        """Get the default category ID for this scanner integration."""
+        if self.integration.default_asset_category:
+            return self.integration.default_asset_category.category_id
+        # Fallback to Host category
+        host_category = self._asset_categories.get('Host')
+        return host_category.category_id if host_category else None
+
     def _apply_transformation(self, value, mapping):
         """Apply transformation rule if specified."""
         if not mapping.transformation_rule or not value:
             return value
+            
+        # Handle special transformation rules
+        if mapping.transformation_rule == 'nessus_system_type_map':
+            return self._apply_nessus_system_type_mapping(value)
+        elif mapping.transformation_rule == 'default_scanner_category':
+            return self._get_default_scanner_category()
+        elif mapping.transformation_rule == 'severity_map':
+            # Handle severity mapping
+            severity_mapping = self.severity_mappings.get(str(value))
+            return severity_mapping['level'] if severity_mapping else 5
+        elif mapping.transformation_rule == 'first':
+            # Take first item if value is a list or comma-separated
+            if isinstance(value, list):
+                return value[0] if value else ''
+            elif isinstance(value, str) and ',' in value:
+                return value.split(',')[0].strip()
+            return value
+            
+        # Handle general transformations
         try:
             context = {
                 'value': value,
@@ -62,7 +159,7 @@ class ScannerImporter:
             }
             return eval(mapping.transformation_rule, {"__builtins__": {}}, context)
         except Exception as e:
-            print(f"Transformation error for {mapping.source_field}: {e}")
+            logger.warning(f"Transformation error for {mapping.source_field}: {e}")
             return value
 
     def _convert_value(self, value, field_type):
@@ -114,7 +211,8 @@ class ScannerImporter:
     @transaction.atomic
     def _process_host(self, report_host: ET.Element):
         """
-        Process a ReportHost element into an Asset using database field mappings.
+        Process a ReportHost element into an Asset using database field mappings
+        with enhanced category/subtype support.
         """
         # Extract host properties
         host_props = {}
@@ -124,22 +222,34 @@ class ScannerImporter:
             if name and value:
                 host_props[name] = value
         logger.debug(f"Host properties: {host_props}")
+        
         asset_data = {'extra': {}}
+        
+        # Apply field mappings for assets
         if 'asset' in self.field_mappings:
             for mapping in self.field_mappings['asset']:
                 source_value = None
+                
                 # Get value from host properties or XML attributes
-                if mapping.source_field in host_props:
+                if mapping.source_field == '':
+                    # Empty source field means use transformation only (e.g., default_scanner_category)
+                    source_value = ''
+                elif mapping.source_field in host_props:
                     source_value = host_props[mapping.source_field]
-                elif mapping.source_field == 'host-name':
+                elif mapping.source_field == 'HostName':
                     source_value = report_host.get('name')
+                
                 # Apply transformation if specified
-                if source_value:
-                    source_value = self._apply_transformation(source_value, mapping)
+                if source_value is not None or mapping.transformation_rule:
+                    transformed_value = self._apply_transformation(source_value, mapping)
+                    if transformed_value is not None:
+                        source_value = transformed_value
+                
                 # Convert and assign value
                 if source_value or mapping.default_value:
                     final_value = source_value or mapping.default_value
                     converted_value = self._convert_value(final_value, mapping.field_type)
+                    
                     if '.' in mapping.target_field:
                         # Handle nested fields like 'extra.os'
                         parts = mapping.target_field.split('.')
@@ -147,17 +257,73 @@ class ScannerImporter:
                             asset_data['extra'][parts[1]] = converted_value
                     else:
                         asset_data[mapping.target_field] = converted_value
-        logger.debug(f"Final asset_data before save: {asset_data}")
-        # Always assign the AssetType instance for 'Host'
-        asset_data['asset_type'] = AssetType.objects.get(name='Host')
+        
+        logger.debug(f"Asset data after field mappings: {asset_data}")
+        
+        # Ensure we have required fields
+        if 'category_id' not in asset_data:
+            # Fallback to default Host category
+            host_category = self._asset_categories.get('Host')
+            if host_category:
+                asset_data['category_id'] = host_category.category_id
+        
+        # Get category and subtype objects
+        category = None
+        subtype = None
+        
+        if 'category_id' in asset_data:
+            try:
+                category = AssetCategory.objects.get(category_id=asset_data['category_id'])
+            except AssetCategory.DoesNotExist:
+                # Fallback to Host category
+                category = self._asset_categories.get('Host')
+        
+        if 'subtype_id' in asset_data and asset_data['subtype_id']:
+            try:
+                subtype = AssetSubtype.objects.get(subtype_id=asset_data['subtype_id'])
+            except AssetSubtype.DoesNotExist:
+                subtype = None
+        
+        # Clean up the data for Asset creation
+        asset_data['category'] = category
+        asset_data['subtype'] = subtype
+        
+        # Remove the ID fields as we're using the objects
+        asset_data.pop('category_id', None)
+        asset_data.pop('subtype_id', None)
+        
+        # Keep legacy asset_type for backward compatibility during migration
+        if not hasattr(asset_data, 'asset_type'):
+            try:
+                host_asset_type = AssetType.objects.get(name='Host')
+                asset_data['asset_type'] = host_asset_type
+            except AssetType.DoesNotExist:
+                pass
+        
         if 'name' not in asset_data:
             asset_data['name'] = asset_data.get('hostname') or asset_data.get('ip_address') or 'Unknown Host'
+        
         asset_data['extra']['last_scan'] = timezone.now().isoformat()
+        
+        # Create or update asset
+        defaults = asset_data.copy()
+        lookup_fields = {}
+        
+        # Use hostname and IP for lookup if available
+        if asset_data.get('hostname') and asset_data.get('ip_address'):
+            lookup_fields['hostname'] = asset_data['hostname']
+            lookup_fields['ip_address'] = asset_data['ip_address']
+        else:
+            # Fallback to name and category
+            lookup_fields['name'] = asset_data['name']
+            if category:
+                lookup_fields['category'] = category
+        
         asset, created = Asset.objects.update_or_create(
-            name=asset_data['name'],
-            asset_type=asset_data['asset_type'],
-            defaults=asset_data
+            **lookup_fields,
+            defaults=defaults
         )
+        
         logger.info(f"Asset {'created' if created else 'updated'}: {asset}")
         self.created_assets += 1 if created else 0
         return asset
