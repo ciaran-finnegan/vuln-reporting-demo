@@ -113,29 +113,44 @@ The critical schema changes have been completed to support multi-scanner environ
 
 ---
 
-## 🔥 IMMEDIATE TASKS: API Development & Cloud Setup
+## 🔥 IMMEDIATE TASKS: Prioritized Implementation Plan
 
-### 1. Django API Endpoints (High Priority)
-- [ ] **Create API views** (views.py is currently empty - only 4 lines)
+### Phase 1A: Django Upload Endpoint (Highest Priority - Next Branch)
+- [ ] **Create Django API views** (views.py is currently empty - only 4 lines)
 - [ ] **POST /api/upload/nessus** - File upload and parsing endpoint
-- [ ] **GET /api/reports/mttr** - MTTR calculations
-- [ ] **GET /api/reports/sla** - SLA compliance data
+  - [ ] File upload handling with validation
+  - [ ] Integration with existing nessus_scanreport_import.py parser
+  - [ ] Progress tracking and error responses
+  - [ ] JSON response with import statistics
+- [ ] **URL routing configuration** for upload endpoint
 - [ ] **Basic error responses** and logging
-- [ ] **URL routing** configuration
+- [ ] **CORS configuration** for frontend access
+- [ ] **File size limits** and validation
+- [ ] **Test endpoint** with existing Nessus sample files
 
-### 2. Supabase Cloud Setup (High Priority) 
+### Phase 1B: lovable.dev UI + Supabase Auth (Second Priority)
 - [ ] **Create Supabase project**
 - [ ] **Deploy existing schema** to Supabase PostgreSQL
 - [ ] **Configure authentication providers**
 - [ ] **Set up storage buckets** for file uploads
 - [ ] **Enable Row Level Security (RLS)**
-- [ ] **Migrate from local PostgreSQL** to Supabase
+- [ ] **lovable.dev Setup**:
+  - [ ] Connect to Supabase project
+  - [ ] Configure authentication flow
+  - [ ] Create basic upload page with drag-and-drop
+  - [ ] Test file upload to Django endpoint
 
-### 3. Cloud Integration (Medium Priority)
-- [ ] **Connect Django to Supabase** database
-- [ ] **Configure Supabase Storage** for file uploads
-- [ ] **Test API endpoints** with cloud database
-- [ ] **Configure CORS** for frontend access
+### Phase 1C: Django Reporting Endpoints (Third Priority)
+- [ ] **GET /api/reports/mttr** - MTTR calculations
+  - [ ] Calculate mean time to remediate by severity
+  - [ ] Group by business group and asset type
+  - [ ] Support date range filtering
+- [ ] **GET /api/reports/sla** - SLA compliance data
+  - [ ] Calculate SLA compliance percentages
+  - [ ] Show overdue findings count
+  - [ ] Group by severity and business group
+- [ ] **Connect Django to Supabase** database (migrate from local PostgreSQL)
+- [ ] **Test reporting endpoints** with cloud database
 
 ---
 
