@@ -195,6 +195,68 @@ The critical schema changes have been completed to support multi-scanner environ
 
 ---
 
+## 🗄️ BACKLOG: Database Schema Cleanup (Low Priority)
+
+### Table Naming Consistency
+- [ ] **Rename `Vulnerabilitys` table to `Vulnerabilities`** 
+  - [ ] Create migration to rename table
+  - [ ] Update all Django model references
+  - [ ] Update any hardcoded SQL queries
+  - [ ] Update API endpoint references
+  - [ ] Update documentation
+
+- [ ] **Rename `scanner_integration` table to `integrations`**
+  - [ ] Create migration to rename table
+  - [ ] Update Django model name from `ScannerIntegration` to `Integration`
+  - [ ] Update foreign key references in other models
+  - [ ] Update admin interface references
+  - [ ] Update API endpoints and documentation
+
+- [ ] **Rename `field_mapping` table to `integration_field_mappings`**
+  - [ ] Create migration to rename table  
+  - [ ] Update Django model name from `FieldMapping` to `IntegrationFieldMapping`
+  - [ ] Update related query references
+  - [ ] Update management commands
+  - [ ] Update admin interface
+
+### Upload Management Improvements
+- [ ] **Rename scanner uploads to more descriptive name**
+  - [ ] Evaluate current upload tracking approach
+  - [ ] Rename to `upload_batches` or `file_uploads` (suggest better name)
+  - [ ] Update related models and references
+  - [ ] Consider adding upload status tracking
+  - [ ] Update API endpoints accordingly
+
+### Schema Cleanup & Review
+- [ ] **Remove unused `asset_types` table**
+  - [ ] Verify no remaining references to legacy AssetTypes model
+  - [ ] Confirm all functionality moved to AssetCategory/AssetSubtype
+  - [ ] Create migration to drop table safely
+  - [ ] Update any remaining legacy code references
+  - [ ] Clean up migration history if possible
+
+- [ ] **Review and optimize severity mapping**
+  - [ ] Audit current severity mapping usage
+  - [ ] Standardize severity scale across all integrations
+  - [ ] Consider adding severity validation rules
+  - [ ] Review mapping performance for large datasets
+  - [ ] Document best practices for new scanner integrations
+
+### Database Performance & Maintenance
+- [ ] **Index optimization review**
+  - [ ] Analyze query patterns from actual usage
+  - [ ] Add indexes for common filtering operations
+  - [ ] Review foreign key index coverage
+  - [ ] Optimize JSONB field queries if needed
+
+- [ ] **Constraint validation**
+  - [ ] Review all unique constraints for edge cases
+  - [ ] Validate foreign key cascade behaviors
+  - [ ] Add check constraints where appropriate
+  - [ ] Review nullable field decisions
+
+---
+
 ## 🎨 Phase 2: UI Development (Days 7-10)
 
 ### lovable.dev Setup
