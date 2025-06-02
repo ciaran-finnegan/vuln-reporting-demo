@@ -1,19 +1,82 @@
 # Risk Radar Backend
 
-## Backend Code Conventions
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](.) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Status](https://img.shields.io/badge/status-MVP--active-green)]()
 
-All contributors (including LLMs) **must** read and follow:
+## Overview
 
-- [BACKEND_DEVELOPMENT_GUIDELINES.md](./BACKEND_DEVELOPMENT_GUIDELINES.md)
-- [Rapid_MVP_App_Architecture.md](./Rapid_MVP_App_Architecture.md)
+Risk Radar is a hybrid Django + Supabase vulnerability management platform. It ingests Nessus scan files, manages assets and vulnerabilities, tracks remediation, and provides compliance reporting. The backend is built with Django and connects to a Supabase-hosted PostgreSQL database, with a React (lovable.dev) frontend for rapid UI development.
 
-**Do not** introduce new files, apps, or patterns unless justified in these documents.  
-If you propose a change, reference the relevant section in these docs.
+---
 
-For LLM/AI users:  
-Always specify the file and function/class to edit, and check for existing conventions before suggesting changes.
+## Key Features
 
-> For Nessus field extraction and mapping, see [nessus_extractor.py extraction script](https://github.com/ciaran-finnegan/nessus-reporting-metrics-demo/blob/main/etl/extractors/nessus_extractor.py).
+- Nessus file import and parsing (configurable field mapping)
+- Asset and vulnerability management (all asset types)
+- SLA tracking and compliance reporting
+- Remediation campaign management
+- Business groups and asset tagging
+- REST API for complex logic and reporting
+- Supabase for authentication, storage, and direct CRUD
+- Django Admin for backend management
+
+---
+
+## Quick Start
+
+### 1. Prerequisites
+- Python 3.10+
+- Supabase project (with database and storage bucket)
+- Node.js (for frontend, if using lovable.dev)
+
+### 2. Backend Setup
+```bash
+# Clone the repo
+# (Assume you are in the project root)
+pip install -r requirements.txt
+cp .env.example .env  # Add your Supabase credentials
+python manage.py migrate
+python manage.py createsuperuser
+```
+
+### 3. Database Setup
+- Run the schema in Supabase SQL Editor (see architecture docs)
+- Enable Row Level Security and create policies
+- Insert default data (asset types, SLA policy, Nessus integration)
+
+### 4. Run the Server
+```bash
+python manage.py runserver
+```
+
+### 5. Frontend (lovable.dev)
+- Connect to Supabase and Django API endpoints
+- Use built-in auth and storage components
+
+---
+
+## Project Structure
+
+```
+/riskradar/                # Django project root
+  /core/                   # Main Django app
+    models.py              # ORM models
+    scanner_import.py      # Nessus import logic
+    management/commands/   # Batch commands
+    reports.py             # CSV/PDF reporting
+    ...
+  manage.py                # Django management script
+  requirements.txt         # Python dependencies
+  .env                     # Environment variables
+  Dockerfile               # (optional)
+/docs/                     # Architecture & design docs
+/data/                     # Sample Nessus files, CSVs
+```
+
+---
+
+## Release Management
+
+- See [CHANGES.md](./CHANGES.md) for version history and release notes.
 
 ---
 
@@ -21,31 +84,20 @@ Always specify the file and function/class to edit, and check for existing conve
 
 - [ ] Read `BACKEND_DEVELOPMENT_GUIDELINES.md` and `Rapid_MVP_App_Architecture.md`
 - [ ] Use the documented file layout and naming conventions
-- [ ] Before making changes, check if the change is allowed by the guidelines
-- [ ] If unsure, ask for clarification or propose an update to the guidelines first
-- [ ] For LLM/AI: Always include these files in your context or reference them in your prompt
+- [ ] Check if changes are allowed by the guidelines before making them
+- [ ] For LLM/AI: Always specify file and function/class to edit
 
 ---
 
-## How to Use Cursor Context / Pinned Files
+## AI Usage
 
-**Cursor** (the AI-powered code editor) allows you to "pin" files so that the LLM always considers them when generating code or suggestions.
+- Always reference the guidelines and architecture docs when generating or editing code.
+- Do not introduce new files or patterns unless justified in the docs.
 
-### To Pin Files in Cursor:
+---
 
-1. **Open the file** you want to pin (e.g., `BACKEND_DEVELOPMENT_GUIDELINES.md` or `Rapid_MVP_App_Architecture.md`).
-2. **Right-click** on the file tab or in the file explorer.
-3. Look for options like "Add Files to Cursor Chat" or "Add Files to New Cursor Chat". (The exact wording may vary by version.)
-4. Select the option to add the file to your chat context. You may need to do this for each new chat session.
-5. Repeat for any other files you want always included (e.g., your architecture doc).
+## License
 
-**Result:**  
-Whenever you ask Cursor to generate, refactor, or suggest code, it will use the content of these files as part of its context window—making it much more likely to follow your conventions and not introduce unnecessary changes.
+MIT
 
-### Tips
-
-- You can add multiple files (e.g., guidelines, architecture, and key models) to your chat context.
-- If you update your guidelines, re-add the file to refresh the context.
-- For best results, keep your guidelines and architecture docs concise and up to date.
-
-If you do not see a "pin" or "add to context" option, check Cursor's documentation or updates, as the feature may be named differently or require a specific workflow in your version. 
+> For Nessus field extraction and mapping, see [nessus_extractor.py extraction script](https://github.com/ciaran-finnegan/nessus-reporting-metrics-demo/blob/main/etl/extractors/nessus_extractor.py). 
