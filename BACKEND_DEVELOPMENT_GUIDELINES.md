@@ -1,47 +1,75 @@
 # Backend Development Guidelines for Risk Radar
 
-## File Layout
+## Current File Layout (As of 2025-01-02)
 
 ```
-/riskradar/                # Django project root (contains settings, wsgi, asgi, etc.)
-    __init__.py
-    settings.py
-    urls.py
-    wsgi.py
-    asgi.py
+/riskradar/                # Django project root ✅ IMPLEMENTED
+    __init__.py           ✅
+    settings.py           ✅ Complete PostgreSQL configuration
+    urls.py               ✅ Basic admin routing (API routes pending)
+    wsgi.py               ✅
+    asgi.py               ✅
 
-/core/                     # Main Django app for business logic
-    __init__.py
-    admin.py
-    apps.py
-    models.py
-    views.py
-    serializers.py
-    scanner_import.py      # Nessus and other scanner import logic
-    management/
-        commands/
-            import_nessus.py
-            generate_sla_report.py
-            capture_mttr_snapshot.py
-    migrations/
-        __init__.py
-        ...               # Migration files
+/core/                    # Main Django app ✅ FULLY IMPLEMENTED
+    __init__.py           ✅
+    admin.py              ✅ Enhanced with AssetCategory/AssetSubtype management
+    apps.py               ✅
+    models.py             ✅ Complete schema (356 lines, 7 tables + enhanced asset types)
+    views.py              ❌ PENDING (only 4 lines - needs API endpoints)
+    forms.py              ✅ FieldMapping forms
+    nessus_scanreport_import.py  ✅ Complete parser (513 lines)
+    
+    management/           ✅ FULLY IMPLEMENTED
+        commands/         ✅ 6 commands implemented
+            __init__.py   ✅
+            import_nessus.py              ✅ File import command
+            setup_asset_categories.py     ✅ 86 asset subtypes setup
+            setup_nessus_field_mappings.py ✅ Basic field mappings
+            setup_enhanced_nessus_mappings.py ✅ Enhanced with asset type detection
+            populate_initial_data.py      ✅ SLA policies, business groups
+            clear_demo_data.py            ✅ Data management
+            
+    migrations/           ✅ FULLY IMPLEMENTED
+        __init__.py       ✅
+        0001_initial.py   ✅ Base schema
+        0002-0005_*.py    ✅ Incremental updates
+        0006_multi_scanner_support.py ✅ Multi-scanner schema
+        0007_enhanced_asset_types.py ✅ Categories & subtypes
+        
+    tests/                ❌ PENDING (placeholder files only)
+        __init__.py       ✅
+        test_models.py    ❌ TODO
+        test_views.py     ❌ TODO
+        test_api.py       ❌ TODO
 
-    tests/
-        __init__.py
-        test_models.py
-        test_views.py
-        test_api.py
+/manage.py                ✅ IMPLEMENTED
+/requirements.txt         ✅ IMPLEMENTED (Django, psycopg2, etc.)
+/.env                     ❌ TODO (environment variables)
+/Dockerfile               ❌ TODO (containerisation)
 
-    reports.py             # CSV/PDF reporting logic
-    utils.py               # Any shared utility functions
-
-/manage.py                 # Django management script
-
-/requirements.txt          # Python dependencies
-/.env                      # Environment variables (not committed)
-/Dockerfile                # For containerisation (if used)
+# PLANNED ADDITIONS:
+/core/serializers.py     ❌ TODO (DRF serializers for API endpoints)
+/core/reports.py         ❌ TODO (CSV/PDF reporting logic)
+/core/utils.py           ❌ TODO (shared utility functions)
 ```
+
+## Implementation Status Summary
+
+### ✅ **COMPLETED** (feature/core-mvp branch)
+- **Complete Django project structure** (28 Python files)
+- **Full database schema** with 7 migrations
+- **Enhanced asset type system** (5 categories, 86 subtypes)
+- **Complete Nessus parser** with field mapping engine
+- **Enhanced Django admin interface**
+- **6 management commands** for setup and data operations
+- **Successfully tested** with real Nessus imports
+
+### ❌ **PENDING** (upcoming branches)
+- **API endpoints** (views.py, serializers.py)
+- **Comprehensive testing** (test files are placeholders)
+- **Reporting logic** (reports.py)
+- **Environment configuration** (.env)
+- **Containerisation** (Dockerfile)
 
 ---
 
