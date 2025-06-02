@@ -217,7 +217,7 @@ POST   /api/v1/campaigns/create     # Create remediation campaign
 ## Core Data Model
 
 ### Schema Overview
-The schema centres on separate tables for assets, vulnerabilities, and findings to normalise data and avoid duplication. A scanner_integration table lists all configured integrations, while field_mapping and severity_mapping tables provide flexible mapping from vendor-specific fields and severity ratings to the internal schema.
+The schema centres on separate tables for assets, vulnerabilities, and findings to normalise data and avoid duplication. An integrations table lists all configured integrations, while integration_field_mappings and severity_mapping tables provide flexible mapping from vendor-specific fields and severity ratings to the internal schema.
 
 ### 3.1 Scanner Integration Table
 
@@ -225,7 +225,7 @@ The schema centres on separate tables for assets, vulnerabilities, and findings 
 
 #### Enhanced Implementation (Current)
 ```sql
-CREATE TABLE scanner_integration (
+CREATE TABLE integrations (
     integration_id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     type VARCHAR(50) NOT NULL DEFAULT 'vuln_scanner',  -- e.g., 'vuln_scanner', 'asset_inventory'
@@ -239,7 +239,7 @@ CREATE TABLE scanner_integration (
 
 #### Legacy Design (Reference)
 ```sql
-CREATE TABLE scanner_integration (
+CREATE TABLE integrations (
     integration_id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     type VARCHAR(50) NOT NULL,               -- e.g., 'vuln_scanner', 'asset_inventory'
@@ -411,7 +411,7 @@ CREATE TABLE findings (
     finding_id SERIAL PRIMARY KEY,
     asset_id INTEGER NOT NULL REFERENCES assets(asset_id) ON DELETE CASCADE,
     vulnerability_id INTEGER NOT NULL REFERENCES vulnerabilities(vulnerability_id) ON DELETE CASCADE,
-    integration_id INTEGER NOT NULL REFERENCES scanner_integration(integration_id) ON DELETE CASCADE,
+    integration_id INTEGER NOT NULL REFERENCES integrations(integration_id) ON DELETE CASCADE,
     first_seen TIMESTAMP,
     last_seen TIMESTAMP,
     fixed_at TIMESTAMP,
@@ -443,9 +443,9 @@ CREATE TABLE findings (
 
 ### 3.6 Field Mapping Table
 ```sql
-CREATE TABLE field_mapping (
+CREATE TABLE integration_field_mappings (
     mapping_id SERIAL PRIMARY KEY,
-    integration_id INTEGER NOT NULL REFERENCES scanner_integration(integration_id) ON DELETE CASCADE,
+    integration_id INTEGER NOT NULL REFERENCES integrations(integration_id) ON DELETE CASCADE,
     source_field VARCHAR(200) NOT NULL,     -- Scanner field name/path
     target_model VARCHAR(50) NOT NULL,      -- 'assets', 'vulnerabilities', 'findings'
     target_field VARCHAR(100) NOT NULL,     -- Model field or JSON path
@@ -476,7 +476,7 @@ CREATE TABLE field_mapping (
 ```sql
 CREATE TABLE severity_mapping (
     severity_mapping_id SERIAL PRIMARY KEY,
-    integration_id INTEGER NOT NULL REFERENCES scanner_integration(integration_id) ON DELETE CASCADE,
+    integration_id INTEGER NOT NULL REFERENCES integrations(integration_id) ON DELETE CASCADE,
     external_severity VARCHAR(50) NOT NULL,
     internal_severity_level SMALLINT NOT NULL,
     internal_severity_label VARCHAR(20) NOT NULL,
@@ -498,7 +498,7 @@ The schema design has been validated against major vulnerability scanner require
 #### Key Validation Findings
 1. **Identification Strategy**: Our multi-identifier approach (cloud ID → agent UUID → MAC → hostname → IP) matches industry best practices
 2. **JSONB Flexibility**: Provides flexible handling of vendor-specific fields without schema changes
-3. **Normalisation Framework**: field_mapping and severity_mapping tables enable configuration-driven integration
+3. **Normalisation Framework**: integration_field_mappings and severity_mapping tables enable configuration-driven integration
 4. **Nessus MVP**: All fields from the [Nessus file format](https://docs.tenable.com/quick-reference/nessus-file-format/Nessus-File-Format.pdf) are fully supported
 
 The schema is **production-ready** for the MVP and future scanner integrations.
@@ -541,7 +541,7 @@ The full deduplication algorithm with cloud IDs, agent UUIDs, and MAC addresses 
 #### MVP Implementation
 - **CVE Tracking**: Store and deduplicate by CVE identifier
 - **Basic Severity**: Use CVSS scores from scanners
-- **Scanner Mapping**: Nessus plugin IDs via field_mapping table
+- **Scanner Mapping**: Nessus plugin IDs via integration_field_mappings table
 - **Status Tracking**: Open, Fixed, Risk Accepted states
 
 #### Severity Normalisation (MVP)
@@ -679,7 +679,7 @@ graph LR
 #### Nessus to Risk Radar
 ```sql
 -- Asset mappings
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field) VALUES
 (1, 'HostName', 'assets', 'hostname'),
 (1, 'host-ip', 'assets', 'ip_address'),
 (1, 'operating-system', 'assets', 'operating_system'),
@@ -688,7 +688,7 @@ INSERT INTO field_mapping (integration_id, source_field, target_model, target_fi
 (1, 'host-fqdn', 'assets', 'extra.fqdn');
 
 -- Vulnerability mappings
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field, transformation) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field, transformation) VALUES
 (1, '@pluginID', 'vulnerabilities', 'external_id', NULL),
 (1, '@pluginName', 'vulnerabilities', 'title', NULL),
 (1, 'synopsis', 'vulnerabilities', 'extra.synopsis', NULL),
@@ -699,7 +699,7 @@ INSERT INTO field_mapping (integration_id, source_field, target_model, target_fi
 (1, 'pluginFamily', 'vulnerabilities', 'extra.plugin_family', NULL);
 
 -- CVE and Reference mappings
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field, transformation) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field, transformation) VALUES
 (1, 'cve', 'vulnerabilities', 'cve_id', 'first'),  -- Take first CVE if multiple
 (1, 'cve', 'vulnerabilities', 'extra.references.cve', 'list'),
 (1, 'bid', 'vulnerabilities', 'extra.references.bid', 'list'),
@@ -707,7 +707,7 @@ INSERT INTO field_mapping (integration_id, source_field, target_model, target_fi
 (1, 'see_also', 'vulnerabilities', 'extra.references.see_also', 'list');
 
 -- CVSS mappings
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field) VALUES
 (1, 'cvss_base_score', 'vulnerabilities', 'cvss_score', NULL),
 (1, 'cvss_vector', 'vulnerabilities', 'extra.cvss.vector', NULL),
 (1, 'cvss_temporal_score', 'vulnerabilities', 'extra.cvss.temporal_score', NULL),
@@ -716,7 +716,7 @@ INSERT INTO field_mapping (integration_id, source_field, target_model, target_fi
 (1, 'cvss3_vector', 'vulnerabilities', 'extra.cvss.cvss3_vector', NULL);
 
 -- Exploit mappings
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field) VALUES
 (1, 'exploitability_ease', 'vulnerabilities', 'extra.exploit.exploitability_ease', NULL),
 (1, 'exploit_available', 'vulnerabilities', 'extra.exploit.exploit_available', 'boolean'),
 (1, 'exploit_framework_canvas', 'vulnerabilities', 'extra.exploit.canvas', 'boolean'),
@@ -727,14 +727,14 @@ INSERT INTO field_mapping (integration_id, source_field, target_model, target_fi
 (1, 'canvas_package', 'vulnerabilities', 'extra.exploit.canvas_package', NULL);
 
 -- Date mappings
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field, transformation) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field, transformation) VALUES
 (1, 'vuln_publication_date', 'vulnerabilities', 'published_at', 'parse_date'),
 (1, 'plugin_modification_date', 'vulnerabilities', 'modified_at', 'parse_date'),
 (1, 'plugin_publication_date', 'vulnerabilities', 'extra.plugin_publication_date', 'parse_date'),
 (1, 'patch_publication_date', 'vulnerabilities', 'extra.patch_publication_date', 'parse_date');
 
 -- Finding mappings
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field, transformation) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field, transformation) VALUES
 (1, '@port', 'findings', 'port', NULL),
 (1, '@protocol', 'findings', 'protocol', NULL),
 (1, '@svc_name', 'findings', 'service', NULL),
@@ -746,7 +746,7 @@ INSERT INTO field_mapping (integration_id, source_field, target_model, target_fi
 #### Qualys to Risk Radar
 ```sql
 -- Similar structure with Qualys-specific fields
-INSERT INTO field_mapping (integration_id, source_field, target_model, target_field) VALUES
+INSERT INTO integration_field_mappings (integration_id, source_field, target_model, target_field) VALUES
 (2, 'QID', 'vulnerabilities', 'external_id'),
 (2, 'IP', 'assets', 'ip_address'),
 (2, 'DNS', 'assets', 'hostname'),
