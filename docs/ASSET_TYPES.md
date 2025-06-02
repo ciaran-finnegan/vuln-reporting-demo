@@ -12,7 +12,7 @@ This document provides a comprehensive reference for asset types, validation, an
 
 ## Overview
 
-This project uses a standardised schema for categorising assets, based on Vulcan Cyber ExposureOS™ documentation. The asset type system ensures consistent classification across different data sources and provides a foundation for vulnerability management and risk assessment.
+This project uses a standardised schema for categorising assets, based on industry standards and vulnerability management best practices. The asset type system ensures consistent classification across different data sources and provides a foundation for vulnerability management and risk assessment.
 
 ## Asset Type Categories
 

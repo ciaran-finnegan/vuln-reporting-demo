@@ -91,7 +91,7 @@ Planned features and improvements for the next release:
 - **Production-ready multi-scanner schema** now in place
 
 ### Documentation Updates (2024-12-18)
-- Validated schema design against Vulcan Cyber connector requirements
+- Validated schema design against industry standards and scanner requirements
 - Confirmed production-readiness for multi-scanner support (Qualys, Tenable, CrowdStrike, Microsoft Defender)
 - Consolidated duplicate PRD content and removed `docs/risk_radar_prd.md`
 - Updated TODO.md to reflect schema validation completion

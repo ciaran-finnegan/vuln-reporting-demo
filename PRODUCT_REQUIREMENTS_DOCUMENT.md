@@ -28,7 +28,7 @@ Risk Radar is a comprehensive vulnerability management platform that consolidate
 
 ## Features Overview
 
-Risk Radar provides a comprehensive vulnerability management platform with features designed to streamline security operations from discovery through remediation. Based on industry best practices exemplified by [Vulcan Cyber ExposureOS](https://help.vulcancyber.com/en/), the platform delivers the following capabilities:
+Risk Radar provides a comprehensive vulnerability management platform with features designed to streamline security operations from discovery through remediation. Built on industry best practices and proven vulnerability management principles, the platform delivers the following capabilities:
 
 ### 🔍 Discovery & Ingestion
 - **Multi-Scanner Support**: Integrate any vulnerability scanner through configuration-driven field mappings
@@ -489,7 +489,7 @@ CREATE TABLE severity_mapping (
 ### Schema Validation
 
 #### Multi-Scanner Support Validation
-The schema design has been validated against [Vulcan Cyber's](https://help.vulcancyber.com/) connector documentation for major vulnerability scanners:
+The schema design has been validated against major vulnerability scanner requirements and industry standards:
 - ✅ **Qualys VM** - All required fields mappable
 - ✅ **Tenable.io/Nessus** - Complete field coverage confirmed
 - ✅ **CrowdStrike Falcon** - Agent-based findings supported
@@ -497,7 +497,7 @@ The schema design has been validated against [Vulcan Cyber's](https://help.vulca
 
 #### Key Validation Findings
 1. **Identification Strategy**: Our multi-identifier approach (cloud ID → agent UUID → MAC → hostname → IP) matches industry best practices
-2. **JSONB Flexibility**: Aligns with Vulcan's approach for handling vendor-specific fields without schema changes
+2. **JSONB Flexibility**: Provides flexible handling of vendor-specific fields without schema changes
 3. **Normalisation Framework**: field_mapping and severity_mapping tables enable configuration-driven integration
 4. **Nessus MVP**: All fields from the [Nessus file format](https://docs.tenable.com/quick-reference/nessus-file-format/Nessus-File-Format.pdf) are fully supported
 

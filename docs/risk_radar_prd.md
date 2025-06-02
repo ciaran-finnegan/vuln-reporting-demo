@@ -1,13 +1,13 @@
 # Risk Radar MVP – Product Requirements Document
 
 ## Overview  
-**Risk Radar** is a vulnerability management platform inspired by Vulcan Cyber’s ExposureOS. This PRD focuses on high-priority MVP features: **(1)** Nessus file uploads, **(2)** Vulnerability & Asset Management, **(3)** Business Groups & Tags, and **(4)** Remediation & SLA Reports. The goal is to outline each feature from a developer’s perspective, define the supporting data model, propose an initial architecture (React + Supabase), and provide an implementation plan with step-by-step tasks. This will enable developers to rapidly build the MVP on Supabase, with an eye towards a later migration to a Django backend for advanced capabilities.
+**Risk Radar** is a comprehensive vulnerability management platform designed for modern security operations. This PRD focuses on high-priority MVP features: **(1)** Nessus file uploads, **(2)** Vulnerability & Asset Management, **(3)** Business Groups & Tags, and **(4)** Remediation & SLA Reports. The goal is to outline each feature from a developer's perspective, define the supporting data model, propose an initial architecture (React + Supabase), and provide an implementation plan with step-by-step tasks. This will enable developers to rapidly build the MVP on Supabase, with an eye towards a later migration to a Django backend for advanced capabilities.
 
 ## 1. Nessus File Upload Integration  
-**Description:** The MVP will allow users to upload Nessus scan report files (`.nessus` format) and ingest their contents into the Risk Radar database. Vulcan Cyber’s platform uses a “Nessus File Connector” for this purpose, and Risk Radar will implement a similar workflow without requiring an API integration.
+**Description:** The MVP will allow users to upload Nessus scan report files (`.nessus` format) and ingest their contents into the Risk Radar database. The platform implements a file-based connector approach for ingesting scan data without requiring an API integration.
 
 - **Supported Format:** Accept `.nessus` XML files exported from Tenable (Tenable.io or Tenable.sc). Other formats or direct API integration are out of scope for MVP.
-- **File Constraints:** Enforce file prerequisites similar to Vulcan’s: e.g. maximum size ~300 MB and UTF‑8 encoding. Large files will be processed asynchronously to avoid blocking the UI.
+- **File Constraints:** Enforce file prerequisites including: e.g. maximum size ~300 MB and UTF‑8 encoding. Large files will be processed asynchronously to avoid blocking the UI.
 - **Upload Workflow:** Users upload a file; a backend function parses it and inserts or updates:
   - **Assets** (hosts) with hostname, IP, OS, etc.
   - **Vulnerability instances** on those assets with plugin ID/CVE, severity, etc.
