@@ -41,4 +41,4 @@ htmlcov/
 
 # Misc
 *.bak
-*.tmp 
+*.tmp .DS_Store
