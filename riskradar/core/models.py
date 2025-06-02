@@ -328,6 +328,8 @@ class ScannerUpload(models.Model):
     integration = models.ForeignKey(ScannerIntegration, on_delete=models.CASCADE, related_name='uploads')
     filename = models.CharField(max_length=255)
     file_size = models.IntegerField(null=True, blank=True)
+    file_hash = models.CharField(max_length=64, null=True, blank=True, 
+                               help_text="SHA-256 hash for duplicate detection", db_index=True)
     file_path = models.TextField()  # Supabase Storage path
     uploaded_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
@@ -339,6 +341,13 @@ class ScannerUpload(models.Model):
     class Meta:
         db_table = 'scanner_upload'
         ordering = ['-uploaded_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['file_hash'],
+                name='unique_file_hash',
+                condition=models.Q(file_hash__isnull=False)
+            ),
+        ]
 
     def __str__(self):
         return f"{self.filename} ({self.integration.name}) - {self.status}"

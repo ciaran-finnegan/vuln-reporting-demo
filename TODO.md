@@ -180,18 +180,18 @@ The critical schema changes have been completed to support multi-scanner environ
 - [ ] **Connect Django to Supabase** database (migrate from local PostgreSQL)
 - [ ] **Test reporting endpoints** with cloud database
 
-### Phase 1D: File Upload Enhancements (Fourth Priority)
-- [ ] **Duplicate File Detection** - Prevent duplicate uploads using file hashing
-  - [ ] Add SHA-256 hash calculation for uploaded files
-  - [ ] Store file hashes in database (new `file_hash` field on ScannerUpload model)
-  - [ ] Check for existing hash before processing
-  - [ ] Return appropriate response for duplicate files (409 Conflict)
-  - [ ] Add CLI option to force re-import of duplicate files
-  - [ ] Update API documentation with duplicate handling behaviour
-- [ ] **Upload History & Management**
-  - [ ] Track upload metadata (timestamp, user, file size, processing status)
-  - [ ] API endpoint to list previous uploads
-  - [ ] Delete/reprocess uploaded files functionality
+### ✅ COMPLETED: Phase 1D - File Upload Enhancements (2025-01-03)
+- [x] **Duplicate File Detection** - Prevent duplicate uploads using file hashing
+  - [x] Add SHA-256 hash calculation for uploaded files
+  - [x] Store file hashes in database (new `file_hash` field on ScannerUpload model)
+  - [x] Check for existing hash before processing
+  - [x] Return appropriate response for duplicate files (409 Conflict)
+  - [x] Add CLI option to force re-import of duplicate files (`--force-reimport`)
+  - [x] Update API documentation with duplicate handling behaviour
+- [x] **Upload History & Management**
+  - [x] Track upload metadata (timestamp, user, file size, processing status)
+  - [x] API endpoint to list previous uploads (`GET /api/v1/upload/history`)
+  - [ ] Delete/reprocess uploaded files functionality (future enhancement)
 
 ---
 

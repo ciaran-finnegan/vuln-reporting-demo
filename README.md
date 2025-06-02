@@ -11,11 +11,13 @@ Risk Radar is a hybrid Django + Supabase vulnerability management platform. It i
 ## Key Features
 
 - Nessus file import and parsing (configurable field mapping)
+- **Duplicate file detection** with SHA-256 hashing
 - Asset and vulnerability management (all asset types)
 - SLA tracking and compliance reporting
 - Remediation campaign management
 - Business groups and asset tagging
 - REST API for complex logic and reporting
+- Upload history and management
 - Supabase for authentication, storage, and direct CRUD
 - Django Admin for backend management
 
@@ -165,9 +167,13 @@ python manage.py import_nessus /path/to/scan.nessus
 
 # Import all files in a directory
 python manage.py import_nessus /path/to/nessus_files/
+
+# Force re-import (bypass duplicate detection)
+python manage.py import_nessus /path/to/scan.nessus --force-reimport
 ```
 **Purpose**: Processes Nessus scan files and imports findings into the database
-- **Features**: Automatic asset deduplication, vulnerability correlation
+- **Features**: Automatic asset deduplication, vulnerability correlation, **duplicate file detection**
+- **Duplicate Detection**: SHA-256 hash-based duplicate prevention (use `--force-reimport` to bypass)
 - **Output**: Import statistics (assets created, vulnerabilities found, findings imported)
 - **Requirements**: Field mappings must be configured first
 
@@ -217,6 +223,66 @@ python manage.py runserver
   - `setup_asset_categories` before `setup_enhanced_nessus_mappings`
   - Field mappings before `import_nessus`
   - `populate_initial_data` for business groups and SLA policies
+
+---
+
+## API Endpoints
+
+Risk Radar provides RESTful API endpoints for file uploads, duplicate detection, and upload management:
+
+### Upload & File Management
+```bash
+# Upload Nessus file (with duplicate detection)
+POST /api/v1/upload/nessus
+Content-Type: multipart/form-data
+Body: file=<nessus_file>
+
+# Force re-import (bypass duplicate detection)
+POST /api/v1/upload/nessus?force_reimport=true
+
+# Get upload history with filtering
+GET /api/v1/upload/history?status=completed&limit=10
+
+# Get upload requirements and limits
+GET /api/v1/upload/info
+```
+
+### System Status
+```bash
+# Check API status and available endpoints
+GET /api/v1/status
+```
+
+### Response Examples
+
+**Successful Upload (201 Created):**
+```json
+{
+  "success": true,
+  "filename": "scan_results.nessus",
+  "file_hash": "a1b2c3d4...",
+  "upload_id": 123,
+  "statistics": {
+    "assets_processed": 15,
+    "vulnerabilities_processed": 42,
+    "findings_processed": 158
+  }
+}
+```
+
+**Duplicate Detected (409 Conflict):**
+```json
+{
+  "error": "Duplicate file detected",
+  "file_hash": "a1b2c3d4...",
+  "duplicate_info": {
+    "original_filename": "previous_scan.nessus",
+    "original_upload_date": "2025-01-02T10:30:00Z",
+    "upload_id": 120
+  },
+  "solution": "Use force_reimport=true query parameter to bypass duplicate detection."
+}
+```
 
 ---
 

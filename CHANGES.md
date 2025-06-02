@@ -2,6 +2,38 @@
 
 ## 0.2.0 (Unreleased)
 
+### Duplicate File Detection Implementation (2025-01-03)
+- **Complete duplicate detection system**:
+  - Added SHA-256 file hash calculation for uploaded files
+  - Created migration 0010_add_file_hash_duplicate_detection with file_hash field and unique constraint
+  - Implemented hash-based duplicate detection in both API and CLI interfaces
+  - Added comprehensive error handling with 409 Conflict responses for duplicates
+- **Force re-import functionality**:
+  - API: `force_reimport=true` query parameter bypasses duplicate detection
+  - CLI: `--force-reimport` flag allows re-processing of duplicate files
+  - Intelligent record updating: reuses existing upload records instead of creating duplicates
+  - Maintains data integrity while allowing legitimate re-imports
+- **Upload history management**:
+  - New `GET /api/v1/upload/history` endpoint with pagination and filtering
+  - Complete upload metadata tracking: file size, hash, status, timestamps
+  - Processing statistics and error message storage
+  - Status progression tracking (pending → processing → completed/failed)
+- **Enhanced API endpoints**:
+  - Updated upload responses include file hash and upload ID
+  - Detailed duplicate information with original upload metadata
+  - Clear resolution guidance in error messages
+  - Updated API status endpoint to include all available endpoints
+- **Utility functions and testing**:
+  - Created `core/utils.py` with hash calculation and duplicate detection utilities
+  - Comprehensive test suite: `commands/testing/test_duplicate_detection.py`
+  - Tests cover: API uploads, duplicate detection, force re-import, upload history
+  - Enhanced CLI commands with duplicate detection and comprehensive progress reporting
+- **Documentation and integration**:
+  - Updated README.md with duplicate detection features and API documentation
+  - Enhanced management command help text and error handling
+  - Consistent duplicate handling between API and CLI interfaces
+  - Production-ready with complete error recovery and rollback support
+
 ### Database Schema Cleanup (2025-01-03)
 - **Table naming consistency improvements**:
   - Renamed `vulnerability` table to `vulnerabilities` for proper plural naming

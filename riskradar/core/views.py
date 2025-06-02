@@ -11,6 +11,9 @@ from rest_framework.parsers import MultiPartParser, FileUploadParser
 from rest_framework.response import Response
 from rest_framework import status
 from .nessus_scanreport_import import ScannerImporter
+from .utils import calculate_upload_hash, check_duplicate_upload, get_duplicate_info
+from .models import ScannerUpload, ScannerIntegration
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +26,11 @@ def upload_nessus_file(request):
     """
     Upload and parse a Nessus .nessus file.
     
+    Query Parameters:
+        force_reimport (bool): Set to 'true' to bypass duplicate detection
+    
     Returns:
-        JSON response with import statistics or error details
+        JSON response with import statistics, duplicate info, or error details
     """
     try:
         # Validate request
@@ -35,6 +41,7 @@ def upload_nessus_file(request):
             )
         
         uploaded_file = request.FILES['file']
+        force_reimport = request.query_params.get('force_reimport', '').lower() == 'true'
         
         # Validate file type
         if not uploaded_file.name.lower().endswith('.nessus'):
@@ -49,6 +56,37 @@ def upload_nessus_file(request):
             return Response(
                 {'error': f'File too large. Maximum size is {max_size // (1024*1024)}MB.'},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Calculate file hash for duplicate detection
+        try:
+            file_hash = calculate_upload_hash(uploaded_file)
+            logger.info(f"Calculated hash for {uploaded_file.name}: {file_hash}")
+        except Exception as e:
+            logger.error(f"Error calculating file hash for {uploaded_file.name}: {str(e)}")
+            return Response(
+                {'error': 'Error processing file. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Check for duplicates
+        is_duplicate, existing_upload = check_duplicate_upload(file_hash, 'Nessus')
+        
+        if is_duplicate and not force_reimport:
+            duplicate_info = get_duplicate_info(existing_upload)
+            logger.info(f"Duplicate file detected: {uploaded_file.name} matches upload ID {existing_upload.id}")
+            
+            return Response(
+                {
+                    'error': 'Duplicate file detected',
+                    'message': 'This file has already been uploaded and processed.',
+                    'duplicate_info': duplicate_info,
+                    'solution': 'Use force_reimport=true query parameter to bypass duplicate detection.',
+                    'filename': uploaded_file.name,
+                    'file_hash': file_hash,
+                    'is_duplicate': True
+                },
+                status=status.HTTP_409_CONFLICT
             )
         
         # Save file temporarily
@@ -68,9 +106,47 @@ def upload_nessus_file(request):
             
             logger.info(f"Processing Nessus file: {uploaded_file.name} ({uploaded_file.size} bytes)")
             
+            # Get or create Nessus integration
+            nessus_integration, created = ScannerIntegration.objects.get_or_create(
+                name='Nessus',
+                defaults={
+                    'type': 'vuln_scanner',
+                    'description': 'Nessus vulnerability scanner'
+                }
+            )
+            
+            # Create or update upload record with hash
+            if is_duplicate and force_reimport:
+                # Force re-import: update existing record
+                upload_record = existing_upload
+                upload_record.filename = uploaded_file.name
+                upload_record.file_size = uploaded_file.size
+                upload_record.file_path = temp_file_path
+                upload_record.status = 'processing'
+                upload_record.error_message = ''
+                upload_record.processed_at = None
+                upload_record.save()
+                logger.info(f"Force re-import: updating existing upload record ID {upload_record.id}")
+            else:
+                # New upload: create new record
+                upload_record = ScannerUpload.objects.create(
+                    integration=nessus_integration,
+                    filename=uploaded_file.name,
+                    file_size=uploaded_file.size,
+                    file_hash=file_hash,
+                    file_path=temp_file_path,
+                    status='processing'
+                )
+            
             # Import the file using existing parser
             importer = ScannerImporter(integration_name='Nessus')
             import_stats = importer.import_file(temp_file_path)
+            
+            # Update upload record with results
+            upload_record.processed_at = timezone.now()
+            upload_record.status = 'completed' if not import_stats.get('errors') else 'completed_with_errors'
+            upload_record.stats = import_stats
+            upload_record.save()
             
             # Check authentication status
             authenticated_user = None
@@ -83,6 +159,9 @@ def upload_nessus_file(request):
                 'message': 'File uploaded and processed successfully',
                 'filename': uploaded_file.name,
                 'file_size': uploaded_file.size,
+                'file_hash': file_hash,
+                'upload_id': upload_record.id,
+                'force_reimport_used': force_reimport,
                 'authenticated': authenticated_user is not None,
                 'uploaded_by': authenticated_user or 'Anonymous',
                 'statistics': {
@@ -105,11 +184,18 @@ def upload_nessus_file(request):
             return Response(response_data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
+            # Update upload record with error
+            if 'upload_record' in locals():
+                upload_record.status = 'failed'
+                upload_record.error_message = str(e)
+                upload_record.save()
+            
             logger.error(f"Error processing Nessus file {uploaded_file.name}: {str(e)}", exc_info=True)
             return Response(
                 {
                     'error': f'Error processing file: {str(e)}',
-                    'filename': uploaded_file.name
+                    'filename': uploaded_file.name,
+                    'file_hash': file_hash
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -139,7 +225,9 @@ def api_status(request):
         'message': 'Risk Radar API is operational',
         'endpoints': {
             'upload_nessus': '/api/v1/upload/nessus',
-            'status': '/api/v1/status'
+            'upload_history': '/api/v1/upload/history',
+            'status': '/api/v1/status',
+            'upload_info': '/api/v1/upload/info'
         }
     })
 
@@ -157,3 +245,75 @@ def upload_info(request):
         'supported_scanners': ['Nessus'],
         'upload_endpoint': '/api/v1/upload/nessus'
     })
+
+@api_view(['GET'])
+def upload_history(request):
+    """
+    Get upload history with optional filtering.
+    
+    Query Parameters:
+        status: Filter by status (pending, processing, completed, failed)
+        integration: Filter by integration name
+        limit: Number of records to return (default: 50)
+        offset: Number of records to skip (default: 0)
+    """
+    try:
+        # Get query parameters
+        status_filter = request.query_params.get('status')
+        integration_filter = request.query_params.get('integration')
+        limit = int(request.query_params.get('limit', 50))
+        offset = int(request.query_params.get('offset', 0))
+        
+        # Validate limit
+        if limit > 200:
+            limit = 200
+        
+        # Build query
+        uploads = ScannerUpload.objects.all()
+        
+        if status_filter:
+            uploads = uploads.filter(status=status_filter)
+        
+        if integration_filter:
+            uploads = uploads.filter(integration__name__icontains=integration_filter)
+        
+        # Get total count and paginated results
+        total_count = uploads.count()
+        uploads = uploads[offset:offset + limit]
+        
+        # Format response
+        upload_list = []
+        for upload in uploads:
+            upload_data = {
+                'upload_id': upload.id,
+                'filename': upload.filename,
+                'file_size': upload.file_size,
+                'file_hash': upload.file_hash,
+                'integration': upload.integration.name,
+                'status': upload.status,
+                'uploaded_at': upload.uploaded_at.isoformat(),
+                'processed_at': upload.processed_at.isoformat() if upload.processed_at else None,
+                'error_message': upload.error_message if upload.error_message else None,
+                'stats': upload.stats
+            }
+            upload_list.append(upload_data)
+        
+        return Response({
+            'success': True,
+            'total_count': total_count,
+            'limit': limit,
+            'offset': offset,
+            'uploads': upload_list
+        })
+        
+    except ValueError as e:
+        return Response(
+            {'error': f'Invalid parameter value: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        logger.error(f"Error in upload_history: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'An error occurred while retrieving upload history.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

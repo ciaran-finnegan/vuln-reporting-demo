@@ -1,6 +1,6 @@
 # Backend Development Guidelines for Risk Radar
 
-## Current File Layout (As of 2025-01-02)
+## Current File Layout (As of 2025-01-03)
 
 ```
 /riskradar/                # Django project root ✅ IMPLEMENTED
@@ -15,11 +15,12 @@
     admin.py              ✅ Enhanced with AssetCategory/AssetSubtype management
     apps.py               ✅
     models.py             ✅ Complete schema (360+ lines, UserProfile + enhanced asset types)
-    views.py              ✅ API endpoints with authentication support
+    views.py              ✅ API endpoints with authentication + duplicate detection
     authentication.py     ✅ Supabase JWT authentication backend
     forms.py              ✅ FieldMapping forms
     nessus_scanreport_import.py  ✅ Complete parser (513 lines)
     urls.py               ✅ API URL routing
+    utils.py              ✅ Hash calculation and duplicate detection utilities
     
     management/           ✅ FULLY IMPLEMENTED
         commands/         ✅ 6 commands implemented
@@ -35,7 +36,9 @@
         __init__.py       ✅
         0001_initial.py   ✅ Base schema
         0002-0007_*.py    ✅ Incremental updates including UserProfile
-        0008_*.py         ✅ Latest authentication migration
+        0008_*.py         ✅ Authentication migration
+        0009_*.py         ✅ Table naming consistency
+        0010_*.py         ✅ Duplicate file detection (file_hash field)
         
     tests/                ❌ PENDING (placeholder files only)
         __init__.py       ✅
@@ -48,6 +51,7 @@
     testing/              ✅ Test and validation scripts
         README.md         ✅ Testing documentation
         test_upload_api.py ✅ Authentication testing script
+        test_duplicate_detection.py ✅ Duplicate detection testing script
     data_generation/      ✅ Synthetic data generation
         README.md         ✅ Data generation documentation
         generate_weekly_nessus_files.py ✅ Nessus file generator
@@ -60,21 +64,22 @@
 # PLANNED ADDITIONS:
 /core/serializers.py     ❌ TODO (DRF serializers for API endpoints)
 /core/reports.py         ❌ TODO (CSV/PDF reporting logic)
-/core/utils.py           ❌ TODO (shared utility functions)
 /commands/maintenance/   ❌ TODO (database operations)
 /commands/deployment/    ❌ TODO (setup scripts)
 ```
 
 ## Implementation Status Summary
 
-### ✅ **COMPLETED** (feature/core-mvp branch)
-- **Complete Django project structure** (28 Python files)
-- **Full database schema** with 7 migrations
+### ✅ **COMPLETED** (feature/duplicate-file-detection branch)
+- **Complete Django project structure** (30+ Python files)
+- **Full database schema** with 10 migrations including duplicate detection
 - **Enhanced asset type system** (5 categories, 86 subtypes)
 - **Complete Nessus parser** with field mapping engine
+- **Duplicate file detection** with SHA-256 hashing and force re-import
 - **Enhanced Django admin interface**
 - **6 management commands** for setup and data operations
-- **Successfully tested** with real Nessus imports
+- **Upload history management** and comprehensive API endpoints
+- **Successfully tested** with real Nessus imports and duplicate detection
 
 ### ❌ **PENDING** (upcoming branches)
 - **API endpoints** (views.py, serializers.py)
