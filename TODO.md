@@ -6,6 +6,31 @@ This document tracks implementation tasks aligned with the MVP Feature Matrix in
 
 ---
 
+## 🌿 Feature Branch Status
+
+### ✅ Completed Branches
+| Branch | Status | Completed | Description |
+|--------|---------|-----------|-------------|
+| `feature/core-mvp` | 🔄 **Ready to Merge** | 2025-01-02 | Complete Django backend, enhanced asset schema, Nessus parser, 7 migrations, admin interface |
+
+### 🚀 Planned Branches
+| Branch | Priority | Phase | Description |
+|--------|----------|-------|-------------|
+| `feature/django-upload-api` | **High** | 1A | Django upload endpoint (`POST /api/upload/nessus`) |
+| `feature/lovable-ui-supabase` | **High** | 1B | lovable.dev UI + Supabase authentication & storage |
+| `feature/django-reporting-api` | **Medium** | 1C | Django reporting endpoints (`GET /api/reports/mttr`, `/sla`) |
+| `feature/ui-dashboard` | **Medium** | 2 | Core UI pages (Dashboard, Assets, Vulnerabilities, Findings) |
+| `feature/ui-upload-page` | **Medium** | 2 | File upload interface with drag-and-drop |
+| `feature/testing-deployment` | **Low** | 4 | Testing, documentation, production deployment |
+
+### 📊 Branch Completion Summary
+- **Completed**: 0 branches merged to main
+- **Ready to Merge**: 1 branch (`feature/core-mvp`)
+- **In Progress**: 0 branches  
+- **Planned**: 6 branches
+
+---
+
 ## ✅ COMPLETED: Enhanced Asset Type Schema Implementation (2025-01-02)
 
 ### Enhanced Asset Categorisation Successfully Implemented

@@ -779,184 +779,96 @@ INSERT INTO severity_mapping (integration_id, external_severity, internal_severi
 
 ## Implementation Guide
 
-### 7.1 MVP Architecture Overview
+### 7.1 Current Implementation Status (2025-01-02)
 
-The MVP uses a hybrid approach to minimise development time while delivering core functionality:
+#### ✅ **COMPLETED** (feature/core-mvp - Ready to Merge)
 
+**Database & Schema:**
+- ✅ Complete PostgreSQL schema with 7 migrations
+- ✅ Enhanced asset type system (5 categories, 86 subtypes)
+- ✅ Multi-scanner support schema (migrations 0006 & 0007)
+- ✅ Field mapping and severity mapping tables
+- ✅ All core tables: Assets, Vulnerabilities, Findings, Categories, Subtypes
+
+**Django Backend:**
+- ✅ Complete Django project structure (28 Python files)
+- ✅ Full models.py implementation (356 lines)
+- ✅ Enhanced admin interface with category/subtype management
+- ✅ Complete Nessus parser (513 lines) with enhanced asset type detection
+- ✅ 6 management commands for setup and data operations
+- ✅ Successfully tested imports (7 assets, 48 findings)
+
+**Data Processing:**
+- ✅ Database-driven field mapping engine
+- ✅ System-type to subtype transformation (e.g., "general-purpose" → "Server")
+- ✅ Enhanced field mappings (fqdn, netbios_name, cloud IDs, scan times)
+- ✅ Asset deduplication with category support
+- ✅ Vulnerability deduplication by CVE/plugin ID
+
+#### ❌ **PENDING** (Upcoming Branches)
+
+**Phase 1A: Django Upload API** (`feature/django-upload-api`)
+- ❌ Django API endpoints (views.py currently only 4 lines)
+- ❌ POST /api/upload/nessus endpoint
+- ❌ File upload handling and validation
+- ❌ URL routing configuration
+- ❌ CORS configuration
+
+**Phase 1B: Cloud Infrastructure** (`feature/lovable-ui-supabase`)
+- ❌ Supabase project setup
+- ❌ Schema deployment to Supabase
+- ❌ Authentication configuration
+- ❌ Storage bucket setup
+- ❌ Row Level Security (RLS) policies
+- ❌ lovable.dev UI connection to Supabase
+
+**Phase 1C: Reporting APIs** (`feature/django-reporting-api`)
+- ❌ GET /api/reports/mttr endpoint
+- ❌ GET /api/reports/sla endpoint
+- ❌ Migration from local PostgreSQL to Supabase
+
+### 7.2 Implementation Roadmap
+
+#### **Immediate Next Steps** (This Week)
 ```
-┌─────────────────┐     ┌──────────────┐     ┌──────────────────┐
-│ Nessus Files    │────▶│ Django       │────▶│ PostgreSQL       │
-│ (Manual Upload) │     │ (Parser Only)│     │ (Supabase)       │
-└─────────────────┘     └──────────────┘     └──────────────────┘
-                                                      │
-                                                      ▼
-                        ┌──────────────┐      ┌──────────────────┐
-                        │ Supabase     │◀────▶│ lovable.dev UI   │
-                        │ - Auth       │      │ - Direct CRUD    │
-                        │ - Storage    │      │ - Dashboard      │
-                        │ - RLS        │      │ - Reporting      │
-                        └──────────────┘      └──────────────────┘
-```
-
-### 7.2 Phase 1: Infrastructure Setup (Days 1-3)
-
-#### Database Deployment
-1. **Create Supabase Project**
-   - Set up PostgreSQL database
-   - Enable authentication
-   - Configure storage buckets
-
-2. **Deploy Schema**
-   ```sql
-   -- Run schema creation scripts
-   -- Create tables: assets, vulnerabilities, findings, etc.
-   -- Set up field_mapping and severity_mapping tables
-   -- Configure RLS policies
-   ```
-
-3. **Initial Data Load**
-   - Create AssetType entries (Host, Website, Container, Code, Cloud)
-   - Populate Nessus field mappings
-   - Set up default SLA policies
-   - Create initial business groups
-
-#### Django Setup
-1. **Minimal Django Project**
-   ```
-   riskradar/
-   ├── core/
-   │   ├── models.py      # Mirror Supabase schema
-   │   ├── parsers/       # Nessus parser
-   │   └── admin.py       # Basic admin interface
-   ├── api/
-   │   └── views.py       # Minimal endpoints
-   └── settings.py        # Supabase connection
-   ```
-
-2. **Key Endpoints Only**
-   - `POST /api/upload/nessus` - Parse and ingest files
-   - `GET /api/reports/mttr` - Calculate MTTR metrics
-   - `GET /api/reports/sla` - SLA compliance data
-
-### 7.3 Phase 2: Core Functionality (Days 4-10)
-
-#### Supabase Configuration
-1. **Row Level Security**
-   ```sql
-   -- Basic RLS for multi-user access
-   CREATE POLICY "Users can view all data" ON assets
-     FOR SELECT USING (true);
-   
-   CREATE POLICY "Users can update findings" ON findings
-     FOR UPDATE USING (auth.uid() IS NOT NULL);
-   ```
-
-2. **Database Functions**
-   ```sql
-   -- Create views for common queries
-   CREATE VIEW vulnerability_summary AS
-   SELECT 
-     v.vulnerability_id,
-     v.title,
-     v.cvss_score,
-     COUNT(f.finding_id) as affected_assets,
-     MAX(f.risk_score) as max_risk
-   FROM vulnerabilities v
-   JOIN findings f ON v.vulnerability_id = f.vulnerability_id
-   WHERE f.status = 'open'
-   GROUP BY v.vulnerability_id;
-   ```
-
-#### lovable.dev UI Development
-1. **Core Pages**
-   - Dashboard with key metrics
-   - Assets table with filtering
-   - Vulnerabilities table with search
-   - Findings view with status updates
-   - Basic reporting page
-
-2. **Key Features**
-   - File upload component
-   - Bulk status updates
-   - Business group filtering
-   - Export to CSV
-   - Responsive design
-
-### 7.4 Phase 3: MVP Completion (Days 11-14)
-
-#### Integration Testing
-1. **End-to-End Workflows**
-   - Upload Nessus file → Parse → View results
-   - Update finding status → Verify metrics update
-   - Apply filters → Export data
-   - Create business groups → Assign assets
-
-2. **Performance Validation**
-   - Test with 10,000+ findings
-   - Verify sub-second query response
-   - Validate concurrent user access
-
-#### Documentation & Deployment
-1. **User Documentation**
-   - Quick start guide
-   - Video walkthrough
-   - FAQ section
-
-2. **Deployment**
-   - Django on Heroku/Railway
-   - Supabase cloud instance
-   - lovable.dev hosting
-   - SSL certificates
-
-### 7.5 Post-MVP Roadmap
-
-#### Phase 4: Enhanced Features (Month 2)
-- Additional scanner support (Qualys)
-- Advanced deduplication algorithm
-- Email notifications
-- Basic automation rules
-
-#### Phase 5: Enterprise Features (Month 3)
-- Full REST API
-- Campaign management
-- Ticketing integration
-- Custom report builder
-
-#### Phase 6: Scale & Security (Month 4)
-- SSO integration
-- Advanced RBAC
-- Performance optimisation
-- Multi-tenancy
-
-### 7.6 Development Best Practices
-
-#### Code Organisation
-```
-# Django: Minimal, focused on parsing
-riskradar/
-├── parsers/          # Scanner-specific parsers
-├── mappings/         # Field mapping logic
-└── reports/          # MTTR/SLA calculations
-
-# Frontend: Component-based
-components/
-├── Dashboard/        # Metric widgets
-├── Tables/          # Reusable data tables
-└── Reports/         # Chart components
+Branch: feature/django-upload-api
+Priority: High
+Tasks:
+- Create Django API views (replace 4-line views.py)
+- Implement POST /api/upload/nessus endpoint
+- Integrate with existing nessus_scanreport_import.py parser
+- Add file validation and progress tracking
+- Configure URL routing and CORS
 ```
 
-#### Testing Strategy
-- Unit tests for parsers
-- Integration tests for data flow
-- UI tests for critical paths
-- Load tests for performance
+#### **Phase 1B: Cloud Setup** (Next Week)
+```
+Branch: feature/lovable-ui-supabase
+Priority: High
+Tasks:
+- Set up Supabase cloud project
+- Deploy existing 7-migration schema to Supabase
+- Configure authentication and storage
+- Build basic upload UI in lovable.dev
+- Test integration with Django upload endpoint
+```
 
-#### Security Considerations
-- All data access through RLS
-- JWT tokens with short expiry
-- Audit logging on all changes
-- Encrypted file uploads
-- OWASP Top 10 compliance
+#### **Phase 1C: Reporting** (Week 3)
+```
+Branch: feature/django-reporting-api
+Priority: Medium
+Tasks:
+- Implement MTTR calculation endpoints
+- Implement SLA compliance endpoints
+- Connect Django to Supabase database
+- Test reporting with cloud data
+```
+
+### 7.3 Original Phase Structure (Reference)
+
+> **Note**: The original phase structure below is for reference. Actual implementation has progressed beyond the original timeline due to comprehensive backend development in feature/core-mvp.
+
+#### ~~Phase 1: Infrastructure Setup (Days 1-3)~~ **COMPLETED**
 
 ---
 
