@@ -239,13 +239,30 @@ CREATE TABLE scanner_integration (
 - `description`: Optional text describing the integration or version
 - `active`: Enables/disables data sync without removing configuration
 
-### 3.2 Assets Table
+### 3.2 Asset Types Table
+```sql
+CREATE TABLE asset_types (
+    asset_type_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE
+);
+```
+
+**Purpose**: Defines the types of assets that can be tracked in the system.
+
+**Common Types**:
+- `Host` - Physical servers, VMs, workstations
+- `Website` - Web applications and APIs
+- `Container` - Docker/Kubernetes workloads
+- `Code` - Source code repositories
+- `Cloud` - Cloud resources (AWS/Azure/GCP)
+
+### 3.3 Assets Table
 ```sql
 CREATE TABLE assets (
     asset_id SERIAL PRIMARY KEY,
     hostname VARCHAR(255),
     ip_address INET,
-    asset_type VARCHAR(50),         -- e.g., 'Server', 'Workstation', 'Container'
+    asset_type_id INTEGER NOT NULL REFERENCES asset_types(asset_type_id),
     operating_system VARCHAR(100),
     mac_address VARCHAR(50),
     extra JSONB,                    -- unstructured metadata (e.g., cloud IDs, tags)
@@ -257,7 +274,7 @@ CREATE TABLE assets (
 
 **Field Descriptions**:
 - `hostname` / `ip_address`: Core identifiers. The unique constraint prevents exact duplicates, though sophisticated deduplication logic handles variations
-- `asset_type`: High-level classification (Server, Workstation, Container, Cloud Resource)
+- `asset_type_id`: Foreign key reference to asset type (Host, Website, Container, etc.)
 - `operating_system`: Normalised OS name/version
 - `mac_address`: Network interface identifier for correlation
 - `extra`: JSONB field storing scanner-specific metadata without schema changes:
@@ -273,7 +290,7 @@ CREATE TABLE assets (
 4. Hostname + primary IP
 5. IP address only (lowest priority)
 
-### 3.3 Vulnerabilities Table
+### 3.4 Vulnerabilities Table
 ```sql
 CREATE TABLE vulnerabilities (
     vulnerability_id SERIAL PRIMARY KEY,
@@ -311,7 +328,7 @@ CREATE TABLE vulnerabilities (
   - CWE IDs
   - Scanner-specific metadata
 
-### 3.4 Findings Table
+### 3.5 Findings Table
 ```sql
 CREATE TABLE findings (
     finding_id SERIAL PRIMARY KEY,
@@ -347,7 +364,7 @@ CREATE TABLE findings (
   - File paths (CrowdStrike)
   - Registry keys (Defender)
 
-### 3.5 Field Mapping Table
+### 3.6 Field Mapping Table
 ```sql
 CREATE TABLE field_mapping (
     mapping_id SERIAL PRIMARY KEY,
@@ -378,7 +395,7 @@ CREATE TABLE field_mapping (
 - `default_value`: Fallback for missing data
 - `sort_order`: Process fields in specific order for dependencies
 
-### 3.6 Severity Mapping Table
+### 3.7 Severity Mapping Table
 ```sql
 CREATE TABLE severity_mapping (
     severity_mapping_id SERIAL PRIMARY KEY,
@@ -721,6 +738,7 @@ The MVP uses a hybrid approach to minimise development time while delivering cor
    ```
 
 3. **Initial Data Load**
+   - Create AssetType entries (Host, Website, Container, Code, Cloud)
    - Populate Nessus field mappings
    - Set up default SLA policies
    - Create initial business groups
