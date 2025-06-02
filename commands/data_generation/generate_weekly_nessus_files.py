@@ -239,7 +239,7 @@ def generate_week_data(week_num, base_path):
 
 def main():
     """Generate weekly Nessus files in organized directory structure."""
-    base_path = "../data/synthetic_nessus"
+    base_path = "../../data/synthetic_nessus"
     clear_directory(base_path)
     
     print(f"Generating synthetic Nessus data in {base_path}")

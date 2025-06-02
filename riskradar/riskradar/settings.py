@@ -46,10 +46,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',  # Add CORS support for frontend
+    'rest_framework',  # Add Django REST framework for API
     'core',  # Add your main app
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Add CORS middleware (must be first)
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -188,3 +191,60 @@ LOGGING = {
         },
     },
 }
+
+# CORS Settings for API access
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # React/lovable.dev development
+    "http://127.0.0.1:3000",
+    "https://localhost:3000",
+    "https://127.0.0.1:3000",
+]
+
+# Allow CORS for all origins in development
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True
+
+# File Upload Settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+FILE_UPLOAD_TEMP_DIR = os.path.join(BASE_DIR, 'temp_uploads')
+
+# Ensure temp upload directory exists
+os.makedirs(FILE_UPLOAD_TEMP_DIR, exist_ok=True)
+
+# Django REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'core.authentication.OptionalSupabaseJWTAuthentication',  # Optional Supabase auth
+        'rest_framework.authentication.SessionAuthentication',   # Django admin sessions
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # MVP: No auth required
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',
+        'rest_framework.parsers.FileUploadParser',
+    ],
+}
+
+# Supabase Configuration
+SUPABASE_PROJECT_ID = os.getenv('SUPABASE_PROJECT_ID')
+SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY')
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
+
+# Warn if Supabase keys are missing
+if not all([SUPABASE_PROJECT_ID, SUPABASE_ANON_KEY, SUPABASE_URL, SUPABASE_JWT_SECRET]):
+    logging.warning("Some Supabase environment variables are missing. Authentication may not work properly.")
+
+# Authentication Backend Configuration
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',  # Default Django auth
+    # Could add custom backends here in the future
+]

@@ -220,6 +220,24 @@ POST   /api/v1/campaigns/create     # Create remediation campaign
 The schema centres on separate tables for assets, vulnerabilities, and findings to normalise data and avoid duplication. A scanner_integration table lists all configured integrations, while field_mapping and severity_mapping tables provide flexible mapping from vendor-specific fields and severity ratings to the internal schema.
 
 ### 3.1 Scanner Integration Table
+
+> **Note**: Enhanced as of 2025-01-02 to include default asset category assignment for improved scanner-specific asset classification.
+
+#### Enhanced Implementation (Current)
+```sql
+CREATE TABLE scanner_integration (
+    integration_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    type VARCHAR(50) NOT NULL DEFAULT 'vuln_scanner',  -- e.g., 'vuln_scanner', 'asset_inventory'
+    default_asset_category_id INTEGER REFERENCES asset_category(category_id) ON DELETE SET NULL,
+    version VARCHAR(50),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### Legacy Design (Reference)
 ```sql
 CREATE TABLE scanner_integration (
     integration_id SERIAL PRIMARY KEY,
@@ -230,22 +248,92 @@ CREATE TABLE scanner_integration (
 );
 ```
 
-**Purpose**: Lists each external scanner integration configured in the system. This is the master registry of all data sources.
+**Purpose**: Lists each external scanner integration configured in the system. Enhanced to provide default asset categorisation based on scanner type.
 
-**Field Descriptions**:
+**Enhanced Field Descriptions**:
 - `integration_id`: Synthetic primary key used throughout the system
 - `name`: Human-readable name (e.g., "Nessus", "Qualys VM", "CrowdStrike Falcon")
 - `type`: Category of integration for future extensibility
+- `default_asset_category_id`: Default category for assets from this scanner (e.g., Nessus defaults to "Host")
+- `version`: Scanner version for compatibility tracking
 - `description`: Optional text describing the integration or version
-- `active`: Enables/disables data sync without removing configuration
+- `is_active`: Enables/disables data sync without removing configuration
+- `created_at`: Timestamp for audit and tracking purposes
 
-### 3.2 Assets Table
+### 3.2 Asset Types Table
+
+> **Note**: This section describes the original asset types design. As of 2025-01-02, this has been enhanced with the implementation of AssetCategory and AssetSubtype models providing 86 standard subtypes across 5 main categories. See CHANGES.md for full details.
+
+#### Enhanced Implementation (Current)
+```sql
+CREATE TABLE asset_category (
+    category_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE asset_subtype (
+    subtype_id SERIAL PRIMARY KEY,
+    category_id INTEGER NOT NULL REFERENCES asset_category(category_id),
+    name VARCHAR(100) NOT NULL,
+    cloud_provider VARCHAR(20),  -- AWS, Azure, GCP for Cloud Resource category
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(category_id, name, cloud_provider)
+);
+```
+
+**Current Categories**:
+- `Host` (18 subtypes) - Physical servers, VMs, workstations, network devices, IoT
+- `Code Project` (11 subtypes) - Repositories, application projects, libraries
+- `Website` (6 subtypes) - Web applications, APIs, domains
+- `Image` (8 subtypes) - Container images, VM images
+- `Cloud Resource` (43 subtypes) - AWS/Azure/GCP resources with provider-specific classification
+
+#### Legacy Design (Reference)
+```sql
+CREATE TABLE asset_types (
+    asset_type_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE
+);
+```
+
+**Purpose**: Originally defined basic asset types. Enhanced implementation provides sophisticated categorisation with provider-aware cloud resource classification and standardised subtypes from ASSET_TYPES.md specification.
+
+### 3.3 Assets Table
+
+> **Note**: This schema has been enhanced as of 2025-01-02 to include category and subtype foreign key references for sophisticated asset classification.
+
+#### Enhanced Implementation (Current)
+```sql
+CREATE TABLE assets (
+    asset_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    hostname VARCHAR(255),
+    ip_address INET,
+    -- Enhanced categorisation
+    category_id INTEGER NOT NULL REFERENCES asset_category(category_id) ON DELETE PROTECT,
+    subtype_id INTEGER REFERENCES asset_subtype(subtype_id) ON DELETE SET NULL,
+    -- Legacy compatibility
+    asset_type_id INTEGER REFERENCES asset_types(asset_type_id) ON DELETE PROTECT,
+    -- Enhanced fields
+    operating_system VARCHAR(100),
+    mac_address VARCHAR(50),
+    extra JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(hostname, ip_address)
+);
+```
+
+#### Legacy Design (Reference)
 ```sql
 CREATE TABLE assets (
     asset_id SERIAL PRIMARY KEY,
     hostname VARCHAR(255),
     ip_address INET,
-    asset_type VARCHAR(50),         -- e.g., 'Server', 'Workstation', 'Container'
+    asset_type_id INTEGER NOT NULL REFERENCES asset_types(asset_type_id),
     operating_system VARCHAR(100),
     mac_address VARCHAR(50),
     extra JSONB,                    -- unstructured metadata (e.g., cloud IDs, tags)
@@ -253,17 +341,23 @@ CREATE TABLE assets (
 );
 ```
 
-**Purpose**: Stores unique IT assets discovered by scanners. Designed to aggregate data from multiple integrations while avoiding duplicates.
+**Purpose**: Stores unique IT assets discovered by scanners. Enhanced to support sophisticated categorisation while maintaining backward compatibility.
 
-**Field Descriptions**:
-- `hostname` / `ip_address`: Core identifiers. The unique constraint prevents exact duplicates, though sophisticated deduplication logic handles variations
-- `asset_type`: High-level classification (Server, Workstation, Container, Cloud Resource)
+**Enhanced Field Descriptions**:
+- `category_id`: Reference to AssetCategory (Host, Code Project, Website, Image, Cloud Resource)
+- `subtype_id`: Reference to AssetSubtype (Server, Router, GitHub Repository, Docker Image, EC2 Instance, etc.)
+- `asset_type_id`: Legacy field maintained for backward compatibility during migration
+- `name`: Asset display name (auto-generated from hostname/IP if not provided)
+- `hostname` / `ip_address`: Core identifiers with unique constraint for deduplication
 - `operating_system`: Normalised OS name/version
 - `mac_address`: Network interface identifier for correlation
-- `extra`: JSONB field storing scanner-specific metadata without schema changes:
-  - Cloud identifiers (AWS instance ID, Azure VM ID)
+- `extra`: Enhanced JSONB field storing:
+  - `fqdn`: Fully qualified domain name
+  - `netbios_name`: Windows NetBIOS name
+  - `system_type`: Original scanner system type value
+  - `scan_start_time` / `scan_end_time`: Scan timing metadata
+  - Cloud identifiers (AWS instance ID, Azure VM ID, GCP instance ID)
   - Agent UUIDs
-  - Asset tags and labels
   - Scanner-specific attributes
 
 **Deduplication Strategy**:
@@ -273,7 +367,7 @@ CREATE TABLE assets (
 4. Hostname + primary IP
 5. IP address only (lowest priority)
 
-### 3.3 Vulnerabilities Table
+### 3.4 Vulnerabilities Table
 ```sql
 CREATE TABLE vulnerabilities (
     vulnerability_id SERIAL PRIMARY KEY,
@@ -311,7 +405,7 @@ CREATE TABLE vulnerabilities (
   - CWE IDs
   - Scanner-specific metadata
 
-### 3.4 Findings Table
+### 3.5 Findings Table
 ```sql
 CREATE TABLE findings (
     finding_id SERIAL PRIMARY KEY,
@@ -347,7 +441,7 @@ CREATE TABLE findings (
   - File paths (CrowdStrike)
   - Registry keys (Defender)
 
-### 3.5 Field Mapping Table
+### 3.6 Field Mapping Table
 ```sql
 CREATE TABLE field_mapping (
     mapping_id SERIAL PRIMARY KEY,
@@ -378,7 +472,7 @@ CREATE TABLE field_mapping (
 - `default_value`: Fallback for missing data
 - `sort_order`: Process fields in specific order for dependencies
 
-### 3.6 Severity Mapping Table
+### 3.7 Severity Mapping Table
 ```sql
 CREATE TABLE severity_mapping (
     severity_mapping_id SERIAL PRIMARY KEY,
@@ -685,183 +779,127 @@ INSERT INTO severity_mapping (integration_id, external_severity, internal_severi
 
 ## Implementation Guide
 
-### 7.1 MVP Architecture Overview
+### 7.1 Current Implementation Status (2025-01-02)
 
-The MVP uses a hybrid approach to minimise development time while delivering core functionality:
+#### ✅ **COMPLETED** (feature/core-mvp - Ready to Merge)
 
+**Database & Schema:**
+- ✅ Complete PostgreSQL schema with 7 migrations
+- ✅ Enhanced asset type system (5 categories, 86 subtypes)
+- ✅ Multi-scanner support schema (migrations 0006 & 0007)
+- ✅ Field mapping and severity mapping tables
+- ✅ All core tables: Assets, Vulnerabilities, Findings, Categories, Subtypes
+
+**Django Backend:**
+- ✅ Complete Django project structure (28 Python files)
+- ✅ Full models.py implementation (356 lines)
+- ✅ Enhanced admin interface with category/subtype management
+- ✅ Complete Nessus parser (513 lines) with enhanced asset type detection
+- ✅ 6 management commands for setup and data operations
+- ✅ Successfully tested imports (7 assets, 48 findings)
+
+**Data Processing:**
+- ✅ Database-driven field mapping engine
+- ✅ System-type to subtype transformation (e.g., "general-purpose" → "Server")
+- ✅ Enhanced field mappings (fqdn, netbios_name, cloud IDs, scan times)
+- ✅ Asset deduplication with category support
+- ✅ Vulnerability deduplication by CVE/plugin ID
+
+#### ❌ **PENDING** (Upcoming Branches)
+
+**Phase 1A: Django Upload API** (`feature/django-upload-api`)
+- ❌ Django API endpoints (views.py currently only 4 lines)
+- ❌ POST /api/upload/nessus endpoint
+- ❌ File upload handling and validation
+- ❌ URL routing configuration
+- ❌ CORS configuration
+
+**Phase 1B: Cloud Infrastructure** (`feature/lovable-ui-supabase`)
+- ❌ Supabase project setup
+- ❌ Schema deployment to Supabase
+- ❌ Authentication configuration
+- ❌ Storage bucket setup
+- ❌ Row Level Security (RLS) policies
+- ❌ lovable.dev UI connection to Supabase
+
+**Phase 1C: Reporting APIs** (`feature/django-reporting-api`)
+- ❌ GET /api/reports/mttr endpoint
+- ❌ GET /api/reports/sla endpoint
+- ❌ Migration from local PostgreSQL to Supabase
+
+### 7.2 Implementation Roadmap
+
+#### **Immediate Next Steps** (This Week)
 ```
-┌─────────────────┐     ┌──────────────┐     ┌──────────────────┐
-│ Nessus Files    │────▶│ Django       │────▶│ PostgreSQL       │
-│ (Manual Upload) │     │ (Parser Only)│     │ (Supabase)       │
-└─────────────────┘     └──────────────┘     └──────────────────┘
-                                                      │
-                                                      ▼
-                        ┌──────────────┐      ┌──────────────────┐
-                        │ Supabase     │◀────▶│ lovable.dev UI   │
-                        │ - Auth       │      │ - Direct CRUD    │
-                        │ - Storage    │      │ - Dashboard      │
-                        │ - RLS        │      │ - Reporting      │
-                        └──────────────┘      └──────────────────┘
-```
-
-### 7.2 Phase 1: Infrastructure Setup (Days 1-3)
-
-#### Database Deployment
-1. **Create Supabase Project**
-   - Set up PostgreSQL database
-   - Enable authentication
-   - Configure storage buckets
-
-2. **Deploy Schema**
-   ```sql
-   -- Run schema creation scripts
-   -- Create tables: assets, vulnerabilities, findings, etc.
-   -- Set up field_mapping and severity_mapping tables
-   -- Configure RLS policies
-   ```
-
-3. **Initial Data Load**
-   - Populate Nessus field mappings
-   - Set up default SLA policies
-   - Create initial business groups
-
-#### Django Setup
-1. **Minimal Django Project**
-   ```
-   riskradar/
-   ├── core/
-   │   ├── models.py      # Mirror Supabase schema
-   │   ├── parsers/       # Nessus parser
-   │   └── admin.py       # Basic admin interface
-   ├── api/
-   │   └── views.py       # Minimal endpoints
-   └── settings.py        # Supabase connection
-   ```
-
-2. **Key Endpoints Only**
-   - `POST /api/upload/nessus` - Parse and ingest files
-   - `GET /api/reports/mttr` - Calculate MTTR metrics
-   - `GET /api/reports/sla` - SLA compliance data
-
-### 7.3 Phase 2: Core Functionality (Days 4-10)
-
-#### Supabase Configuration
-1. **Row Level Security**
-   ```sql
-   -- Basic RLS for multi-user access
-   CREATE POLICY "Users can view all data" ON assets
-     FOR SELECT USING (true);
-   
-   CREATE POLICY "Users can update findings" ON findings
-     FOR UPDATE USING (auth.uid() IS NOT NULL);
-   ```
-
-2. **Database Functions**
-   ```sql
-   -- Create views for common queries
-   CREATE VIEW vulnerability_summary AS
-   SELECT 
-     v.vulnerability_id,
-     v.title,
-     v.cvss_score,
-     COUNT(f.finding_id) as affected_assets,
-     MAX(f.risk_score) as max_risk
-   FROM vulnerabilities v
-   JOIN findings f ON v.vulnerability_id = f.vulnerability_id
-   WHERE f.status = 'open'
-   GROUP BY v.vulnerability_id;
-   ```
-
-#### lovable.dev UI Development
-1. **Core Pages**
-   - Dashboard with key metrics
-   - Assets table with filtering
-   - Vulnerabilities table with search
-   - Findings view with status updates
-   - Basic reporting page
-
-2. **Key Features**
-   - File upload component
-   - Bulk status updates
-   - Business group filtering
-   - Export to CSV
-   - Responsive design
-
-### 7.4 Phase 3: MVP Completion (Days 11-14)
-
-#### Integration Testing
-1. **End-to-End Workflows**
-   - Upload Nessus file → Parse → View results
-   - Update finding status → Verify metrics update
-   - Apply filters → Export data
-   - Create business groups → Assign assets
-
-2. **Performance Validation**
-   - Test with 10,000+ findings
-   - Verify sub-second query response
-   - Validate concurrent user access
-
-#### Documentation & Deployment
-1. **User Documentation**
-   - Quick start guide
-   - Video walkthrough
-   - FAQ section
-
-2. **Deployment**
-   - Django on Heroku/Railway
-   - Supabase cloud instance
-   - lovable.dev hosting
-   - SSL certificates
-
-### 7.5 Post-MVP Roadmap
-
-#### Phase 4: Enhanced Features (Month 2)
-- Additional scanner support (Qualys)
-- Advanced deduplication algorithm
-- Email notifications
-- Basic automation rules
-
-#### Phase 5: Enterprise Features (Month 3)
-- Full REST API
-- Campaign management
-- Ticketing integration
-- Custom report builder
-
-#### Phase 6: Scale & Security (Month 4)
-- SSO integration
-- Advanced RBAC
-- Performance optimisation
-- Multi-tenancy
-
-### 7.6 Development Best Practices
-
-#### Code Organisation
-```
-# Django: Minimal, focused on parsing
-riskradar/
-├── parsers/          # Scanner-specific parsers
-├── mappings/         # Field mapping logic
-└── reports/          # MTTR/SLA calculations
-
-# Frontend: Component-based
-components/
-├── Dashboard/        # Metric widgets
-├── Tables/          # Reusable data tables
-└── Reports/         # Chart components
+Branch: feature/django-upload-api
+Priority: High
+Tasks:
+- Create Django API views (replace 4-line views.py)
+- Implement POST /api/upload/nessus endpoint
+- Integrate with existing nessus_scanreport_import.py parser
+- Add file validation and progress tracking
+- Configure URL routing and CORS
 ```
 
-#### Testing Strategy
-- Unit tests for parsers
-- Integration tests for data flow
-- UI tests for critical paths
-- Load tests for performance
+#### **Phase 1B: Cloud Setup** (Next Week)
+```
+Branch: feature/lovable-ui-supabase
+Priority: High
+Tasks:
+- Set up Supabase cloud project
+- Deploy existing 7-migration schema to Supabase
+- Configure authentication and storage
+- Build basic upload UI in lovable.dev
+- Test integration with Django upload endpoint
+```
 
-#### Security Considerations
-- All data access through RLS
-- JWT tokens with short expiry
-- Audit logging on all changes
-- Encrypted file uploads
-- OWASP Top 10 compliance
+#### **Phase 1C: Reporting** (Week 3)
+```
+Branch: feature/django-reporting-api
+Priority: Medium
+Tasks:
+- Implement MTTR calculation endpoints
+- Implement SLA compliance endpoints
+- Connect Django to Supabase database
+- Test reporting with cloud data
+```
+
+### 7.2.1 Testing & Development Tools
+
+The platform includes comprehensive testing and development tools organised in the `/commands` directory:
+
+#### Testing Infrastructure (`/commands/testing/`)
+- **API Authentication Testing**: `test_upload_api.py` validates JWT token handling
+- **Upload Validation**: Tests both authenticated and unauthenticated file uploads
+- **Error Scenario Testing**: Validates handling of invalid files and tokens
+- **Environment Integration**: Automatically loads Supabase credentials from `.env`
+
+#### Data Generation (`/commands/data_generation/`)
+- **Synthetic Nessus Generation**: `generate_weekly_nessus_files.py` creates realistic test data
+- **Progressive Data Simulation**: Multiple weeks with varying host/vulnerability counts
+- **Scan Profile Simulation**: Production, DMZ, and development environments
+- **Realistic Vulnerability Data**: Proper CVEs, plugin IDs, and CVSS scores
+
+#### Usage Examples
+```bash
+# Test authentication implementation
+cd commands/testing && python test_upload_api.py
+
+# Generate test data for development
+cd commands/data_generation && python generate_weekly_nessus_files.py
+```
+
+These tools are essential for:
+- **Development Testing**: Validating authentication and upload functionality
+- **Integration Testing**: End-to-end API testing with real data flows
+- **Performance Testing**: Large datasets for load testing
+- **Demo Preparation**: Consistent, realistic data for demonstrations
+
+### 7.3 Original Phase Structure (Reference)
+
+> **Note**: The original phase structure below is for reference. Actual implementation has progressed beyond the original timeline due to comprehensive backend development in feature/core-mvp.
+
+#### ~~Phase 1: Infrastructure Setup (Days 1-3)~~ **COMPLETED**
 
 ---
 

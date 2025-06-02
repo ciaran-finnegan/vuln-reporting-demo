@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+[BACKEND_DEVELOPMENT_GUIDELINES.md](mdc:BACKEND_DEVELOPMENT_GUIDELINES.md)
+[MVP_App_Architecture.md](mdc:docs/Future_Designs/MVP_App_Architecture.md)
+[TODO.md](mdc:temp/TODO.md)

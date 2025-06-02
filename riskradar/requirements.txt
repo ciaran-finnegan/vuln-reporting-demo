@@ -6,3 +6,5 @@ reportlab
 requests
 python-dotenv
 dj-database-url
+PyJWT
+lxml
