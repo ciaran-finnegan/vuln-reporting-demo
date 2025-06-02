@@ -1,142 +1,282 @@
 import os
 import random
-from datetime import datetime, timedelta
+import xml.etree.ElementTree as ET
+import datetime
 from pathlib import Path
-from xml.etree.ElementTree import Element, SubElement, ElementTree
+import django
+from django.utils import timezone
 
-# Configurable parameters
-default_assets = [
-    {'hostname': 'qa3app01', 'ip': '10.31.112.21'},
-    {'hostname': 'qa3app02', 'ip': '10.31.112.22'},
-    {'hostname': 'qa3app03', 'ip': '10.31.112.23'},
-    {'hostname': 'qa3app04', 'ip': '10.31.112.24'},
-    {'hostname': 'qa3app05', 'ip': '10.31.112.25'},
-    {'hostname': 'qa3app06', 'ip': '10.31.112.26'},
-]
-default_vulns = [
-    {
-        'pluginID': str(10000 + i),
-        'pluginName': f"Sample Vulnerability {i+1}",
-        'pluginFamily': random.choice(['Windows', 'Web Servers', 'Databases', 'Network']),
-        'severity': random.choice(['0', '1', '2', '3', '4']),
-        'cvss_base_score': round(random.uniform(2.0, 10.0), 1),
-        'description': f"This is a description for vulnerability {i+1}.",
-        'solution': f"Apply the recommended patch for vulnerability {i+1}.",
-        'synopsis': f"Synopsis for vulnerability {i+1}.",
-        'risk_factor': random.choice(['Low', 'Medium', 'High', 'Critical']),
-        'cve': [f"CVE-2024-{1000+i}"],
-        'bid': [str(50000+i)],
-        'xref': [f"OSVDB:{60000+i}"],
-        'see_also': [f"https://vuln.example.com/{i+1}"],
-        'exploitability_ease': random.choice(['No exploit available', 'Exploits are available']),
-        'exploit_available': random.choice(['true', 'false']),
-        'cvss_vector': "CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P",
-        'cvss_temporal_score': round(random.uniform(1.0, 10.0), 1),
-        'plugin_modification_date': None,  # Will be set per week
-        'plugin_publication_date': None,   # Will be set per week
-        'patch_publication_date': None,    # Will be set per week
-        'vuln_publication_date': None,     # Will be set per week
-    }
-    for i in range(20)
-]
+# Simple Django setup
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'riskradar.settings')
+import django
+django.setup()
 
-START_DATE = datetime(2024, 1, 1)
-END_DATE = datetime(2025, 5, 31)
-OUTPUT_DIR = Path('./generated_nessus_files')
-OUTPUT_DIR.mkdir(exist_ok=True)
+from riskradar.core.models import Asset, Vulnerability, Finding, AssetType, ScannerIntegration, BusinessGroup, FieldMapping, SeverityMapping
+import shutil
 
-# Helper to create Nessus XML
+def clear_directory(directory_path):
+    """Clear all files in the specified directory."""
+    if os.path.exists(directory_path):
+        shutil.rmtree(directory_path)
+    os.makedirs(directory_path, exist_ok=True)
 
-def create_nessus_file(week_start, assets, vulns, asset_vuln_map, filename):
-    root = Element('NessusClientData')
-    # Policy (minimal)
-    policy = SubElement(root, 'Policy')
-    SubElement(policy, 'policyName').text = f"Weekly Policy {week_start.strftime('%Y-%m-%d')}"
-    # Report
-    report = SubElement(root, 'Report', name=f"Weekly Scan {week_start.strftime('%Y-%m-%d')}" )
-    for asset in assets:
-        host = SubElement(report, 'ReportHost', name=asset['ip'])
-        host_props = SubElement(host, 'HostProperties')
-        SubElement(host_props, 'tag', name='host-fqdn').text = asset['hostname']
-        SubElement(host_props, 'tag', name='host-ip').text = asset['ip']
-        SubElement(host_props, 'tag', name='HOST_START').text = (week_start + timedelta(hours=9)).strftime('%a %b %d %H:%M:%S %Y')
-        SubElement(host_props, 'tag', name='HOST_END').text = (week_start + timedelta(hours=10)).strftime('%a %b %d %H:%M:%S %Y')
-        # Add vulnerabilities for this asset
-        for vuln in asset_vuln_map[asset['ip']]:
-            item = SubElement(host, 'ReportItem',
-                port=str(random.choice([0, 22, 80, 135, 3389, 443, 445, 3306, 5432, 8080])),
-                svc_name=random.choice(['general', 'http', 'cifs', 'rdp', 'ssh', 'mssql', 'postgres']),
-                protocol=random.choice(['tcp', 'udp']),
-                severity=vuln['severity'],
-                pluginID=vuln['pluginID'],
-                pluginName=vuln['pluginName'],
-                pluginFamily=vuln['pluginFamily']
+def generate_synthetic_nessus_xml(output_file, host_count=50, vulns_per_host=10):
+    """
+    Generate synthetic Nessus XML data with realistic vulnerabilities.
+    """
+    root = ET.Element("NessusClientData_v2")
+    
+    # Define realistic vulnerability templates
+    vuln_templates = [
+        {
+            'plugin_id': '10881',
+            'title': 'SSH Protocol Version 1 Detection',
+            'severity': 'Medium',
+            'cvss_score': '5.0',
+            'cve': 'CVE-2001-0572',
+            'description': 'The remote SSH server supports SSH protocol version 1',
+            'fix_info': 'Disable SSH protocol version 1 and use only SSH protocol version 2'
+        },
+        {
+            'plugin_id': '11219',
+            'title': 'Microsoft Windows SMBv1 Multiple Vulnerabilities',
+            'severity': 'Critical',
+            'cvss_score': '9.3',
+            'cve': 'CVE-2017-0144,CVE-2017-0145',
+            'description': 'The remote Windows host is affected by multiple vulnerabilities in SMBv1',
+            'fix_info': 'Apply the appropriate patches from Microsoft or disable SMBv1'
+        },
+        {
+            'plugin_id': '20007',
+            'title': 'SSL Version 2 and 3 Protocol Detection',
+            'severity': 'High',
+            'cvss_score': '7.5',
+            'cve': 'CVE-2014-3566',
+            'description': 'The remote service encrypts traffic using an obsolete version of SSL',
+            'fix_info': 'Disable SSL version 2 and 3, and enable TLS 1.2 or higher'
+        },
+        {
+            'plugin_id': '42873',
+            'title': 'SSL Certificate Chain Contains Weak RSA Keys',
+            'severity': 'Medium',
+            'cvss_score': '4.3',
+            'cve': '',
+            'description': 'The X.509 certificate chain used by this service contains certificates with RSA keys shorter than 2048 bits',
+            'fix_info': 'Replace the certificate with one using at least 2048-bit RSA keys'
+        },
+        {
+            'plugin_id': '10863',
+            'title': 'Apache HTTP Server Multiple Vulnerabilities',
+            'severity': 'High',
+            'cvss_score': '7.5',
+            'cve': 'CVE-2021-44790,CVE-2021-44224',
+            'description': 'The remote Apache HTTP Server is affected by multiple vulnerabilities',
+            'fix_info': 'Upgrade to Apache HTTP Server 2.4.52 or later'
+        },
+        {
+            'plugin_id': '10287',
+            'title': 'Traceroute Information',
+            'severity': 'Info',
+            'cvss_score': '0.0',
+            'cve': '',
+            'description': 'It was possible to obtain traceroute information',
+            'fix_info': 'Block outgoing ICMP time exceeded packets'
+        },
+        {
+            'plugin_id': '56984',
+            'title': 'Microsoft Windows Update Not Configured',
+            'severity': 'Low',
+            'cvss_score': '2.6',
+            'cve': '',
+            'description': 'Windows Update is not configured to automatically install updates',
+            'fix_info': 'Configure Windows Update to automatically download and install updates'
+        },
+        {
+            'plugin_id': '104743',
+            'title': 'OpenSSL Multiple Vulnerabilities',
+            'severity': 'Critical',
+            'cvss_score': '9.8',
+            'cve': 'CVE-2022-0778',
+            'description': 'The remote host has an installation of OpenSSL that is affected by multiple vulnerabilities',
+            'fix_info': 'Upgrade to OpenSSL 1.1.1n or later'
+        }
+    ]
+    
+    # Define realistic services
+    services = [
+        {'port': '22', 'protocol': 'tcp', 'svc_name': 'ssh'},
+        {'port': '80', 'protocol': 'tcp', 'svc_name': 'http'},
+        {'port': '443', 'protocol': 'tcp', 'svc_name': 'https'},
+        {'port': '445', 'protocol': 'tcp', 'svc_name': 'microsoft-ds'},
+        {'port': '3389', 'protocol': 'tcp', 'svc_name': 'ms-wbt-server'},
+        {'port': '3306', 'protocol': 'tcp', 'svc_name': 'mysql'},
+        {'port': '5432', 'protocol': 'tcp', 'svc_name': 'postgresql'},
+        {'port': '8080', 'protocol': 'tcp', 'svc_name': 'http-proxy'},
+    ]
+    
+    # Create Report element
+    report = ET.SubElement(root, "Report", name="Weekly Security Scan", xmlns="http://www.nessus.org/cm")
+    
+    # Generate hosts
+    for i in range(host_count):
+        host_ip = f"10.0.{i // 256}.{i % 256}"
+        hostname = f"host-{i:04d}.example.com"
+        
+        # Create ReportHost element
+        report_host = ET.SubElement(report, "ReportHost", name=hostname)
+        
+        # Add HostProperties
+        host_properties = ET.SubElement(report_host, "HostProperties")
+        
+        # Add host properties
+        props = [
+            ("tag", {"name": "host-ip", "value": host_ip}),
+            ("tag", {"name": "host-fqdn", "value": hostname}),
+            ("tag", {"name": "operating-system", "value": random.choice([
+                "Microsoft Windows Server 2019 Standard",
+                "Microsoft Windows Server 2016 Datacenter",
+                "Ubuntu 20.04.3 LTS",
+                "Red Hat Enterprise Linux Server release 8.5",
+                "CentOS Linux release 7.9.2009"
+            ])}),
+            ("tag", {"name": "system-type", "value": "server"}),
+            ("tag", {"name": "HOST_START", "value": datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")}),
+            ("tag", {"name": "HOST_END", "value": (datetime.datetime.now() + datetime.timedelta(minutes=5)).strftime("%a %b %d %H:%M:%S %Y")}),
+        ]
+        
+        for tag_name, attrs in props:
+            ET.SubElement(host_properties, tag_name, **attrs)
+        
+        # Add vulnerabilities
+        selected_vulns = random.sample(vuln_templates, min(vulns_per_host, len(vuln_templates)))
+        
+        for vuln in selected_vulns:
+            # Randomly select a service for this vulnerability
+            service = random.choice(services)
+            
+            # Map severity to risk factor
+            risk_factor_map = {
+                'Critical': 'Critical',
+                'High': 'High',
+                'Medium': 'Medium',
+                'Low': 'Low',
+                'Info': 'None'
+            }
+            
+            report_item = ET.SubElement(
+                report_host, "ReportItem",
+                port=service['port'],
+                svc_name=service['svc_name'],
+                protocol=service['protocol'],
+                severity=str(['Info', 'Low', 'Medium', 'High', 'Critical'].index(vuln['severity'])),
+                pluginID=vuln['plugin_id'],
+                pluginName=vuln['title'],
+                pluginFamily="General"
             )
-            SubElement(item, 'description').text = vuln['description']
-            SubElement(item, 'solution').text = vuln['solution']
-            SubElement(item, 'synopsis').text = vuln['synopsis']
-            SubElement(item, 'cvss_base_score').text = str(vuln['cvss_base_score'])
-            SubElement(item, 'risk_factor').text = vuln['risk_factor']
-            for cve in vuln['cve']:
-                SubElement(item, 'cve').text = cve
-            for bid in vuln['bid']:
-                SubElement(item, 'bid').text = bid
-            for xref in vuln['xref']:
-                SubElement(item, 'xref').text = xref
-            for see in vuln['see_also']:
-                SubElement(item, 'see_also').text = see
-            SubElement(item, 'exploitability_ease').text = vuln['exploitability_ease']
-            SubElement(item, 'exploit_available').text = vuln['exploit_available']
-            SubElement(item, 'cvss_vector').text = vuln['cvss_vector']
-            SubElement(item, 'cvss_temporal_score').text = str(vuln['cvss_temporal_score'])
-            # Dates
-            SubElement(item, 'plugin_modification_date').text = vuln['plugin_modification_date']
-            SubElement(item, 'plugin_publication_date').text = vuln['plugin_publication_date']
-            SubElement(item, 'patch_publication_date').text = vuln['patch_publication_date']
-            SubElement(item, 'vuln_publication_date').text = vuln['vuln_publication_date']
-    # Write file
-    tree = ElementTree(root)
-    tree.write(filename, encoding='utf-8', xml_declaration=True)
+            
+            # Add vulnerability details
+            elements = [
+                ("agent", "all"),
+                ("cvss_base_score", vuln['cvss_score']),
+                ("cvss_vector", "CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:P"),
+                ("risk_factor", risk_factor_map[vuln['severity']]),
+                ("description", vuln['description']),
+                ("synopsis", f"The remote host is affected by {vuln['title']}"),
+                ("solution", vuln['fix_info']),
+                ("plugin_publication_date", "2022/01/15"),
+                ("plugin_modification_date", datetime.datetime.now().strftime("%Y/%m/%d")),
+                ("plugin_output", f"Plugin output for {vuln['title']}\nDetected on {hostname}:{service['port']}/{service['protocol']}"),
+            ]
+            
+            # Add CVE if present
+            if vuln['cve']:
+                elements.append(("cve", vuln['cve']))
+            
+            # Add see_also references
+            elements.append(("see_also", f"https://plugins.nessus.org/plugins/{vuln['plugin_id']}"))
+            
+            for elem_name, elem_text in elements:
+                elem = ET.SubElement(report_item, elem_name)
+                elem.text = elem_text
+    
+    # Write to file
+    tree = ET.ElementTree(root)
+    ET.indent(tree, space="  ", level=0)
+    tree.write(output_file, encoding="utf-8", xml_declaration=True)
+    print(f"Generated {output_file}")
 
-# Main simulation loop
+def generate_week_data(week_num, base_path):
+    """Generate data for a specific week."""
+    week_path = os.path.join(base_path, f"week_{week_num}")
+    os.makedirs(week_path, exist_ok=True)
+    
+    # Define different scan profiles
+    scan_profiles = [
+        {
+            'name': 'production_scan',
+            'host_count': 100 + week_num * 5,  # Gradually increase hosts
+            'vulns_per_host': 8 + (week_num % 3)  # Vary vulnerability count
+        },
+        {
+            'name': 'dmz_scan',
+            'host_count': 20 + week_num * 2,
+            'vulns_per_host': 12 + (week_num % 4)
+        },
+        {
+            'name': 'development_scan',
+            'host_count': 50 + week_num * 3,
+            'vulns_per_host': 15 + (week_num % 5)  # Dev typically has more vulns
+        }
+    ]
+    
+    for profile in scan_profiles:
+        output_file = os.path.join(week_path, f"{profile['name']}_week{week_num}.nessus")
+        generate_synthetic_nessus_xml(
+            output_file,
+            host_count=profile['host_count'],
+            vulns_per_host=profile['vulns_per_host']
+        )
+
 def main():
-    week = 0
-    current_date = START_DATE
-    assets = default_assets.copy()
-    vulns = [v.copy() for v in default_vulns]
-    # Set initial vuln dates
-    for v in vulns:
-        v['plugin_modification_date'] = (START_DATE - timedelta(days=random.randint(30, 180))).strftime('%Y/%m/%d')
-        v['plugin_publication_date'] = (START_DATE - timedelta(days=random.randint(30, 180))).strftime('%Y/%m/%d')
-        v['patch_publication_date'] = (START_DATE - timedelta(days=random.randint(0, 60))).strftime('%Y/%m/%d')
-        v['vuln_publication_date'] = (START_DATE - timedelta(days=random.randint(30, 180))).strftime('%Y/%m/%d')
-    # Track which vulns are present on which assets
-    asset_vuln_map = {a['ip']: set(random.sample(vulns, random.randint(3, 6))) for a in assets}
-    while current_date <= END_DATE:
-        # Each week, randomly fix some vulns and introduce new ones
-        for asset in assets:
-            # Fix some existing vulns
-            if asset_vuln_map[asset['ip']]:
-                to_fix = random.sample(list(asset_vuln_map[asset['ip']]), k=random.randint(0, 2))
-                for v in to_fix:
-                    asset_vuln_map[asset['ip']].remove(v)
-            # Add new vulns
-            new_vulns = random.sample(vulns, k=random.randint(0, 2))
-            for v in new_vulns:
-                asset_vuln_map[asset['ip']].add(v)
-        # Update vuln dates for realism
-        for v in vulns:
-            v['plugin_modification_date'] = (current_date - timedelta(days=random.randint(0, 30))).strftime('%Y/%m/%d')
-            v['plugin_publication_date'] = (current_date - timedelta(days=random.randint(30, 180))).strftime('%Y/%m/%d')
-            v['patch_publication_date'] = (current_date - timedelta(days=random.randint(0, 60))).strftime('%Y/%m/%d')
-            v['vuln_publication_date'] = (current_date - timedelta(days=random.randint(30, 180))).strftime('%Y/%m/%d')
-        # Prepare mapping for this week
-        week_asset_vulns = {ip: list(vs) for ip, vs in asset_vuln_map.items()}
-        filename = OUTPUT_DIR / f"nessus_scan_{current_date.strftime('%Y-%m-%d')}.nessus"
-        create_nessus_file(current_date, assets, vulns, week_asset_vulns, filename)
-        print(f"Generated {filename}")
-        current_date += timedelta(weeks=1)
-        week += 1
+    """Generate weekly Nessus files in organized directory structure."""
+    base_path = "../data/synthetic_nessus"
+    clear_directory(base_path)
+    
+    print(f"Generating synthetic Nessus data in {base_path}")
+    
+    # Generate 4 weeks of data
+    for week in range(1, 5):
+        print(f"\nGenerating Week {week} data...")
+        generate_week_data(week, base_path)
+    
+    print(f"\nGeneration complete! Files saved in {base_path}")
+    
+    # Create a README
+    readme_content = """# Synthetic Nessus Test Data
+
+This directory contains synthetic Nessus scan data generated for testing purposes.
+
+## Directory Structure:
+- week_1/ - First week scan data
+  - production_scan_week1.nessus
+  - dmz_scan_week1.nessus
+  - development_scan_week1.nessus
+- week_2/ - Second week scan data
+- week_3/ - Third week scan data
+- week_4/ - Fourth week scan data
+
+## Data Characteristics:
+- Gradually increasing number of hosts per week
+- Varying vulnerability counts
+- Mix of Critical, High, Medium, Low, and Info findings
+- Realistic CVEs and plugin IDs
+- Different scan profiles (Production, DMZ, Development)
+
+Generated on: {}
+""".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    
+    with open(os.path.join(base_path, "README.md"), "w") as f:
+        f.write(readme_content)
 
 if __name__ == "__main__":
     main() 

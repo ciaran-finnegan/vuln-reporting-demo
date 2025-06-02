@@ -5,6 +5,8 @@ from core.models import ScannerIntegration, FieldMapping, SeverityMapping, Asset
 from django.db import transaction
 import json
 import logging
+from datetime import datetime
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,10 @@ class ScannerImporter:
         self.severity_mappings = self._load_severity_mappings()
         self.tree: Optional[ET.ElementTree] = None
         self.root: Optional[ET.Element] = None
+        self.created_assets = 0
+        self.created_vulnerabilities = 0
+        self.created_findings = 0
+        self.updated_findings = 0
 
     def _load_field_mappings(self) -> Dict[str, List[FieldMapping]]:
         """Load active field mappings from the database, grouped by target_model."""
@@ -27,10 +33,13 @@ class ScannerImporter:
             mappings.setdefault(mapping.target_model, []).append(mapping)
         return mappings
 
-    def _load_severity_mappings(self) -> Dict[str, str]:
+    def _load_severity_mappings(self) -> Dict[str, Dict[str, Any]]:
         """Load severity mappings from the database."""
         return {
-            sm.source_value: sm.target_value
+            sm.external_severity: {
+                'label': sm.internal_severity_label,
+                'level': sm.internal_severity_level
+            }
             for sm in self.integration.severity_mappings.filter(is_active=True)
         }
 
@@ -115,7 +124,7 @@ class ScannerImporter:
             if name and value:
                 host_props[name] = value
         logger.debug(f"Host properties: {host_props}")
-        asset_data = {'metadata': {}}
+        asset_data = {'extra': {}}
         if 'asset' in self.field_mappings:
             for mapping in self.field_mappings['asset']:
                 source_value = None
@@ -132,10 +141,10 @@ class ScannerImporter:
                     final_value = source_value or mapping.default_value
                     converted_value = self._convert_value(final_value, mapping.field_type)
                     if '.' in mapping.target_field:
-                        # Handle nested fields like 'metadata.os'
+                        # Handle nested fields like 'extra.os'
                         parts = mapping.target_field.split('.')
-                        if parts[0] == 'metadata':
-                            asset_data['metadata'][parts[1]] = converted_value
+                        if parts[0] == 'extra':
+                            asset_data['extra'][parts[1]] = converted_value
                     else:
                         asset_data[mapping.target_field] = converted_value
         logger.debug(f"Final asset_data before save: {asset_data}")
@@ -143,13 +152,14 @@ class ScannerImporter:
         asset_data['asset_type'] = AssetType.objects.get(name='Host')
         if 'name' not in asset_data:
             asset_data['name'] = asset_data.get('hostname') or asset_data.get('ip_address') or 'Unknown Host'
-        asset_data['metadata']['last_scan'] = timezone.now().isoformat()
+        asset_data['extra']['last_scan'] = timezone.now().isoformat()
         asset, created = Asset.objects.update_or_create(
             name=asset_data['name'],
             asset_type=asset_data['asset_type'],
             defaults=asset_data
         )
         logger.info(f"Asset {'created' if created else 'updated'}: {asset}")
+        self.created_assets += 1 if created else 0
         return asset
 
     @transaction.atomic
@@ -157,16 +167,26 @@ class ScannerImporter:
         """
         Process a ReportItem into Vulnerability and Finding using database field mappings.
         """
-        vuln_data = {'metadata': {}}
-        finding_data = {'asset': asset, 'metadata': {}}
+        vuln_data = {'extra': {}}
+        finding_data = {'asset': asset, 'details': {}}
         # Get severity mapping
         severity_num = report_item.get('severity', '0')
-        vuln_data['severity'] = self.severity_mappings.get(severity_num, 'Info')
+        severity_mapping = self.severity_mappings.get(severity_num, {'label': 'Medium', 'level': 5})
+        vuln_data['severity'] = severity_mapping['label']
+        vuln_data['severity_label'] = severity_mapping['label']
+        vuln_data['severity_level'] = severity_mapping['level']
         # Apply field mappings for vulnerabilities
         if 'vulnerability' in self.field_mappings:
             for mapping in self.field_mappings['vulnerability']:
                 source_value = None
-                if mapping.source_field.startswith('@'):
+                # Handle ReportItem@attribute format
+                if '@' in mapping.source_field:
+                    # Split on @ to get attribute name
+                    parts = mapping.source_field.split('@')
+                    if len(parts) == 2 and parts[0] == 'ReportItem':
+                        attr_name = parts[1]
+                        source_value = report_item.get(attr_name)
+                elif mapping.source_field.startswith('@'):
                     attr_name = mapping.source_field[1:]
                     source_value = report_item.get(attr_name)
                 else:
@@ -178,15 +198,22 @@ class ScannerImporter:
                     converted_value = self._convert_value(final_value, mapping.field_type)
                     if '.' in mapping.target_field:
                         parts = mapping.target_field.split('.')
-                        if parts[0] == 'metadata':
-                            vuln_data['metadata'][parts[1]] = converted_value
+                        if parts[0] == 'extra':
+                            vuln_data['extra'][parts[1]] = converted_value
                     else:
                         vuln_data[mapping.target_field] = converted_value
         # Apply field mappings for findings
         if 'finding' in self.field_mappings:
             for mapping in self.field_mappings['finding']:
                 source_value = None
-                if mapping.source_field.startswith('@'):
+                # Handle ReportItem@attribute format
+                if '@' in mapping.source_field:
+                    # Split on @ to get attribute name
+                    parts = mapping.source_field.split('@')
+                    if len(parts) == 2 and parts[0] == 'ReportItem':
+                        attr_name = parts[1]
+                        source_value = report_item.get(attr_name)
+                elif mapping.source_field.startswith('@'):
                     attr_name = mapping.source_field[1:]
                     source_value = report_item.get(attr_name)
                 else:
@@ -198,15 +225,17 @@ class ScannerImporter:
                     converted_value = self._convert_value(final_value, mapping.field_type)
                     if '.' in mapping.target_field:
                         parts = mapping.target_field.split('.')
-                        if parts[0] == 'metadata':
-                            finding_data['metadata'][parts[1]] = converted_value
+                        if parts[0] == 'details':
+                            finding_data['details'][parts[1]] = converted_value
                     else:
                         finding_data[mapping.target_field] = converted_value
         # Ensure required vulnerability fields
         if 'external_id' not in vuln_data:
             vuln_data['external_id'] = report_item.get('pluginID')
-        if 'name' not in vuln_data:
-            vuln_data['name'] = report_item.get('pluginName', 'Unknown Vulnerability')
+        if 'title' not in vuln_data:
+            vuln_data['title'] = report_item.get('pluginName', 'Unknown Vulnerability')
+        # Add external source
+        vuln_data['external_source'] = self.integration.name
         # Ensure references is always a list (never None)
         if 'references' not in vuln_data or vuln_data['references'] is None:
             vuln_data['references'] = []
@@ -214,10 +243,13 @@ class ScannerImporter:
         if 'cvss' not in vuln_data or vuln_data['cvss'] is None:
             vuln_data['cvss'] = {}
         vuln, created = Vulnerability.objects.update_or_create(
+            external_source=vuln_data['external_source'],
             external_id=vuln_data['external_id'],
             defaults=vuln_data
         )
         finding_data['vulnerability'] = vuln
+        finding_data['integration'] = self.integration
+        finding_data['severity_level'] = vuln_data.get('severity_level', 5)
         finding_data['last_seen'] = timezone.now()
         if 'port' in finding_data and finding_data['port']:
             try:
@@ -229,6 +261,7 @@ class ScannerImporter:
         finding, created = Finding.objects.update_or_create(
             asset=asset,
             vulnerability=vuln,
+            integration=self.integration,
             port=finding_data.get('port', 0),
             protocol=finding_data.get('protocol', ''),
             service=finding_data.get('service', ''),
@@ -237,13 +270,9 @@ class ScannerImporter:
         if not created:
             finding.last_seen = timezone.now()
             finding.save()
-        # Add generic, extensible fields
-        self._process_references(report_item, vuln_data)
-        self._process_exploit(report_item, vuln_data)
-        self._process_cvss(report_item, vuln_data)
-        self._process_dates(report_item, vuln_data)
-        self._process_risk_factor(report_item, vuln_data)
-        self._process_metadata(report_item, vuln_data)
+        # NOTE: Removed _process_* methods as they modify vuln_data after creation
+        # All field processing is handled by field mappings above
+        self.created_vulnerabilities += 1 if created else 0
         return vuln, finding
 
     def _get_text(self, element: ET.Element, tag_name: str) -> str:
@@ -259,9 +288,7 @@ class ScannerImporter:
                 if ref.text:
                     ref_values.append(ref.text)
             if ref_values:
-                references.extend(ref_values)
-        if references:
-            vuln_data['references'] = references
+                vuln_data['references'] = ref_values
 
     # --- Exploitability info ---
     def _process_exploit(self, report_item: ET.Element, vuln_data: Dict[str, Any]):
@@ -307,7 +334,7 @@ class ScannerImporter:
             tag = child.tag
             if tag not in ['description', 'solution', 'synopsis', 'plugin_output', 'cvss_base_score', 'pluginFamily', 'pluginName', 'pluginID', 'port', 'protocol', 'svc_name', 'severity', 'cve', 'bid', 'xref', 'see_also', 'exploitability_ease', 'exploit_available', 'exploit_framework_canvas', 'exploit_framework_metasploit', 'exploit_framework_core', 'metasploit_name', 'canvas_package', 'cvss_vector', 'cvss_temporal_score', 'cvss_temporal_vector', 'vuln_publication_date', 'plugin_modification_date', 'plugin_publication_date', 'patch_publication_date', 'risk_factor']:
                 if child.text:
-                    vuln_data.setdefault('metadata', {})[tag] = child.text
+                    vuln_data.setdefault('extra', {})[tag] = child.text
 
 if __name__ == "__main__":
     # Example usage for local testing

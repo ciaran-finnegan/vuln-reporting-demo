@@ -4,6 +4,25 @@
 
 Planned features and improvements for the next release:
 
+### Schema Migration for Multi-Scanner Support (2025-01-02)
+- **Completed migration 0006_multi_scanner_support**:
+  - Added `type` field to ScannerIntegration model
+  - Added new fields to Vulnerability: `cve_id`, `external_source`, `severity_level`, `severity_label`
+  - Added new fields to Asset: `operating_system`, `mac_address`
+  - Added `integration_id` FK and `severity_level` to Finding
+  - Renamed fields for consistency: `metadata` → `extra`, `name` → `title`, `solution` → `fix_info`
+  - Updated unique constraints for proper multi-scanner deduplication
+- **Updated all management commands** to use new field names:
+  - `setup_nessus_field_mappings.py` - Updated field mappings for new schema
+  - `populate_initial_data.py` - Created to seed AssetTypes, BusinessGroups, and SLA policies
+  - `generate_weekly_nessus_files.py` - Updated for new field names
+  - `clear_demo_data.py` - Already compatible
+- **Fixed Nessus import issues**:
+  - Removed problematic `_process_*` methods that added invalid fields
+  - Fixed XML attribute parsing for `ReportItem@pluginID` format
+  - Successfully imported sample data: 7 assets, 14 vulnerabilities, 20 findings
+- **Production-ready multi-scanner schema** now in place
+
 ### Documentation Updates (2024-12-18)
 - Validated schema design against Vulcan Cyber connector requirements
 - Confirmed production-readiness for multi-scanner support (Qualys, Tenable, CrowdStrike, Microsoft Defender)
