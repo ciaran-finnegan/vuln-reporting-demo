@@ -119,6 +119,107 @@ For detailed usage instructions, see `commands/README.md` and subdirectory READM
 
 ---
 
+## Django Management Commands
+
+Risk Radar includes several Django management commands for database setup, data management, and imports. All commands are run from the `/riskradar` directory using `python manage.py <command>`.
+
+### Initial Setup Commands
+
+#### 1. Setup Asset Categories and Subtypes
+```bash
+python manage.py setup_asset_categories
+```
+**Purpose**: Creates the standard asset categorisation system with 5 categories and 86 subtypes
+- **Categories**: Host, Code Project, Website, Image, Cloud Resource  
+- **Subtypes**: Server, Workstation, AWS EC2, Docker Image, GitHub Repository, etc.
+- **Options**: `--clear` to remove existing categories first
+
+#### 2. Setup Nessus Field Mappings
+```bash
+# Basic field mappings
+python manage.py setup_nessus_field_mappings
+
+# Enhanced mappings with asset type detection
+python manage.py setup_enhanced_nessus_mappings
+```
+**Purpose**: Configures how Nessus scanner fields map to internal data models
+- **Basic**: Core field mappings for assets, vulnerabilities, findings
+- **Enhanced**: Adds asset type detection and cloud metadata extraction
+- **Options**: `--clear` to remove existing mappings first
+
+#### 3. Populate Initial Data
+```bash
+python manage.py populate_initial_data
+```
+**Purpose**: Creates essential baseline data for the platform
+- **Asset Types**: Host, Website, Container, Code, Cloud
+- **Business Groups**: Production, Development, Staging, Corporate
+- **SLA Policies**: Default and Production-specific policies
+
+### Data Import Commands
+
+#### 4. Import Nessus Files
+```bash
+# Import a single file
+python manage.py import_nessus /path/to/scan.nessus
+
+# Import all files in a directory
+python manage.py import_nessus /path/to/nessus_files/
+```
+**Purpose**: Processes Nessus scan files and imports findings into the database
+- **Features**: Automatic asset deduplication, vulnerability correlation
+- **Output**: Import statistics (assets created, vulnerabilities found, findings imported)
+- **Requirements**: Field mappings must be configured first
+
+### Data Management Commands
+
+#### 5. Clear Demo Data
+```bash
+# Interactive confirmation
+python manage.py clear_demo_data
+
+# Non-interactive (for scripts)
+python manage.py clear_demo_data --noinput
+
+# Preserve configurations
+python manage.py clear_demo_data --keep-mappings --keep-asset-types
+```
+**Purpose**: Removes all imported data while preserving configuration
+- **Removes**: Assets, vulnerabilities, findings, campaigns, uploads
+- **Preserves**: Field mappings, asset categories, scanner integrations (with `--keep-mappings`)
+- **Use Cases**: Demo resets, development environment cleanup
+
+### Typical Workflow
+
+For a fresh installation, run commands in this order:
+```bash
+# 1. Setup the database structure
+python manage.py migrate
+
+# 2. Create initial data
+python manage.py populate_initial_data
+python manage.py setup_asset_categories
+python manage.py setup_enhanced_nessus_mappings
+
+# 3. Import scan data
+python manage.py import_nessus /path/to/your/nessus/files/
+
+# 4. Access the admin interface to verify data
+python manage.py runserver
+# Visit http://localhost:8000/admin/
+```
+
+### Requirements & Dependencies
+
+- **Database**: All commands require a configured database (local PostgreSQL or Supabase)
+- **Environment**: Commands use settings from `riskradar/riskradar/settings.py`
+- **Order Dependencies**: 
+  - `setup_asset_categories` before `setup_enhanced_nessus_mappings`
+  - Field mappings before `import_nessus`
+  - `populate_initial_data` for business groups and SLA policies
+
+---
+
 ## Release Management
 
 - See [CHANGES.md](./CHANGES.md) for version history and release notes.
