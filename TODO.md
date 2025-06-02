@@ -197,27 +197,27 @@ The critical schema changes have been completed to support multi-scanner environ
 
 ## 🗄️ BACKLOG: Database Schema Cleanup (Low Priority)
 
-### Table Naming Consistency
-- [ ] **Rename `Vulnerabilitys` table to `Vulnerabilities`** 
-  - [ ] Create migration to rename table
-  - [ ] Update all Django model references
-  - [ ] Update any hardcoded SQL queries
-  - [ ] Update API endpoint references
-  - [ ] Update documentation
+### ✅ Table Naming Consistency (COMPLETED 2025-01-03)
+- [x] **Rename `vulnerability` table to `vulnerabilities`** 
+  - [x] Create migration to rename table
+  - [x] Update all Django model references
+  - [x] Update any hardcoded SQL queries
+  - [x] Update API endpoint references
+  - [x] Update documentation
 
-- [ ] **Rename `scanner_integration` table to `integrations`**
-  - [ ] Create migration to rename table
-  - [ ] Update Django model name from `ScannerIntegration` to `Integration`
-  - [ ] Update foreign key references in other models
-  - [ ] Update admin interface references
-  - [ ] Update API endpoints and documentation
+- [x] **Rename `scanner_integration` table to `integrations`**
+  - [x] Create migration to rename table
+  - [x] Keep Django model name as `ScannerIntegration` (for backwards compatibility)
+  - [x] Update foreign key references in other models
+  - [x] Update admin interface references
+  - [x] Update API endpoints and documentation
 
-- [ ] **Rename `field_mapping` table to `integration_field_mappings`**
-  - [ ] Create migration to rename table  
-  - [ ] Update Django model name from `FieldMapping` to `IntegrationFieldMapping`
-  - [ ] Update related query references
-  - [ ] Update management commands
-  - [ ] Update admin interface
+- [x] **Rename `field_mapping` table to `integration_field_mappings`**
+  - [x] Create migration to rename table  
+  - [x] Keep Django model name as `FieldMapping` (for backwards compatibility)
+  - [x] Update related query references
+  - [x] Update management commands
+  - [x] Update admin interface
 
 ### Upload Management Improvements
 - [ ] **Rename scanner uploads to more descriptive name**

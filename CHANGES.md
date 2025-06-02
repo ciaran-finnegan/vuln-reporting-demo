@@ -2,6 +2,16 @@
 
 ## 0.2.0 (Unreleased)
 
+### Database Schema Cleanup (2025-01-03)
+- **Table naming consistency improvements**:
+  - Renamed `vulnerability` table to `vulnerabilities` for proper plural naming
+  - Renamed `scanner_integration` table to `integrations` for more concise naming 
+  - Renamed `field_mapping` table to `integration_field_mappings` for better descriptive naming
+  - Created migration 0009_table_naming_consistency to handle all table renames
+  - Maintained Django model class names (`ScannerIntegration`, `FieldMapping`) for backwards compatibility
+  - Updated all management commands, admin interface, and imports to use correct references
+  - Verified migration compatibility and tested system functionality
+
 Planned features and improvements for the next release:
 
 ### Django Upload API with Authentication (2025-01-02)

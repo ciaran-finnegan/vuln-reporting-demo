@@ -117,7 +117,7 @@ class Vulnerability(models.Model):
     extra = models.JSONField(default=dict, blank=True)
 
     class Meta:
-        db_table = 'vulnerability'
+        db_table = 'vulnerabilities'
         ordering = ['-severity', '-cvss_score']
         constraints = [
             models.UniqueConstraint(
@@ -148,7 +148,7 @@ class ScannerIntegration(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'scanner_integration'
+        db_table = 'integrations'
         ordering = ['name']
 
     def __str__(self):
@@ -301,7 +301,7 @@ class FieldMapping(models.Model):
     sort_order = models.IntegerField(default=0)
 
     class Meta:
-        db_table = 'field_mapping'
+        db_table = 'integration_field_mappings'
         ordering = ['integration', 'target_model', 'sort_order']
         unique_together = ['integration', 'source_field', 'target_model', 'target_field']
 
