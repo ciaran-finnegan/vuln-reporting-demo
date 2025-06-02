@@ -220,6 +220,24 @@ POST   /api/v1/campaigns/create     # Create remediation campaign
 The schema centres on separate tables for assets, vulnerabilities, and findings to normalise data and avoid duplication. A scanner_integration table lists all configured integrations, while field_mapping and severity_mapping tables provide flexible mapping from vendor-specific fields and severity ratings to the internal schema.
 
 ### 3.1 Scanner Integration Table
+
+> **Note**: Enhanced as of 2025-01-02 to include default asset category assignment for improved scanner-specific asset classification.
+
+#### Enhanced Implementation (Current)
+```sql
+CREATE TABLE scanner_integration (
+    integration_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    type VARCHAR(50) NOT NULL DEFAULT 'vuln_scanner',  -- e.g., 'vuln_scanner', 'asset_inventory'
+    default_asset_category_id INTEGER REFERENCES asset_category(category_id) ON DELETE SET NULL,
+    version VARCHAR(50),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### Legacy Design (Reference)
 ```sql
 CREATE TABLE scanner_integration (
     integration_id SERIAL PRIMARY KEY,
@@ -230,16 +248,50 @@ CREATE TABLE scanner_integration (
 );
 ```
 
-**Purpose**: Lists each external scanner integration configured in the system. This is the master registry of all data sources.
+**Purpose**: Lists each external scanner integration configured in the system. Enhanced to provide default asset categorisation based on scanner type.
 
-**Field Descriptions**:
+**Enhanced Field Descriptions**:
 - `integration_id`: Synthetic primary key used throughout the system
 - `name`: Human-readable name (e.g., "Nessus", "Qualys VM", "CrowdStrike Falcon")
 - `type`: Category of integration for future extensibility
+- `default_asset_category_id`: Default category for assets from this scanner (e.g., Nessus defaults to "Host")
+- `version`: Scanner version for compatibility tracking
 - `description`: Optional text describing the integration or version
-- `active`: Enables/disables data sync without removing configuration
+- `is_active`: Enables/disables data sync without removing configuration
+- `created_at`: Timestamp for audit and tracking purposes
 
 ### 3.2 Asset Types Table
+
+> **Note**: This section describes the original asset types design. As of 2025-01-02, this has been enhanced with the implementation of AssetCategory and AssetSubtype models providing 86 standard subtypes across 5 main categories. See CHANGES.md for full details.
+
+#### Enhanced Implementation (Current)
+```sql
+CREATE TABLE asset_category (
+    category_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE asset_subtype (
+    subtype_id SERIAL PRIMARY KEY,
+    category_id INTEGER NOT NULL REFERENCES asset_category(category_id),
+    name VARCHAR(100) NOT NULL,
+    cloud_provider VARCHAR(20),  -- AWS, Azure, GCP for Cloud Resource category
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(category_id, name, cloud_provider)
+);
+```
+
+**Current Categories**:
+- `Host` (18 subtypes) - Physical servers, VMs, workstations, network devices, IoT
+- `Code Project` (11 subtypes) - Repositories, application projects, libraries
+- `Website` (6 subtypes) - Web applications, APIs, domains
+- `Image` (8 subtypes) - Container images, VM images
+- `Cloud Resource` (43 subtypes) - AWS/Azure/GCP resources with provider-specific classification
+
+#### Legacy Design (Reference)
 ```sql
 CREATE TABLE asset_types (
     asset_type_id SERIAL PRIMARY KEY,
@@ -247,16 +299,35 @@ CREATE TABLE asset_types (
 );
 ```
 
-**Purpose**: Defines the types of assets that can be tracked in the system.
-
-**Common Types**:
-- `Host` - Physical servers, VMs, workstations
-- `Website` - Web applications and APIs
-- `Container` - Docker/Kubernetes workloads
-- `Code` - Source code repositories
-- `Cloud` - Cloud resources (AWS/Azure/GCP)
+**Purpose**: Originally defined basic asset types. Enhanced implementation provides sophisticated categorisation with provider-aware cloud resource classification and standardised subtypes from ASSET_TYPES.md specification.
 
 ### 3.3 Assets Table
+
+> **Note**: This schema has been enhanced as of 2025-01-02 to include category and subtype foreign key references for sophisticated asset classification.
+
+#### Enhanced Implementation (Current)
+```sql
+CREATE TABLE assets (
+    asset_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    hostname VARCHAR(255),
+    ip_address INET,
+    -- Enhanced categorisation
+    category_id INTEGER NOT NULL REFERENCES asset_category(category_id) ON DELETE PROTECT,
+    subtype_id INTEGER REFERENCES asset_subtype(subtype_id) ON DELETE SET NULL,
+    -- Legacy compatibility
+    asset_type_id INTEGER REFERENCES asset_types(asset_type_id) ON DELETE PROTECT,
+    -- Enhanced fields
+    operating_system VARCHAR(100),
+    mac_address VARCHAR(50),
+    extra JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(hostname, ip_address)
+);
+```
+
+#### Legacy Design (Reference)
 ```sql
 CREATE TABLE assets (
     asset_id SERIAL PRIMARY KEY,
@@ -270,17 +341,23 @@ CREATE TABLE assets (
 );
 ```
 
-**Purpose**: Stores unique IT assets discovered by scanners. Designed to aggregate data from multiple integrations while avoiding duplicates.
+**Purpose**: Stores unique IT assets discovered by scanners. Enhanced to support sophisticated categorisation while maintaining backward compatibility.
 
-**Field Descriptions**:
-- `hostname` / `ip_address`: Core identifiers. The unique constraint prevents exact duplicates, though sophisticated deduplication logic handles variations
-- `asset_type_id`: Foreign key reference to asset type (Host, Website, Container, etc.)
+**Enhanced Field Descriptions**:
+- `category_id`: Reference to AssetCategory (Host, Code Project, Website, Image, Cloud Resource)
+- `subtype_id`: Reference to AssetSubtype (Server, Router, GitHub Repository, Docker Image, EC2 Instance, etc.)
+- `asset_type_id`: Legacy field maintained for backward compatibility during migration
+- `name`: Asset display name (auto-generated from hostname/IP if not provided)
+- `hostname` / `ip_address`: Core identifiers with unique constraint for deduplication
 - `operating_system`: Normalised OS name/version
 - `mac_address`: Network interface identifier for correlation
-- `extra`: JSONB field storing scanner-specific metadata without schema changes:
-  - Cloud identifiers (AWS instance ID, Azure VM ID)
+- `extra`: Enhanced JSONB field storing:
+  - `fqdn`: Fully qualified domain name
+  - `netbios_name`: Windows NetBIOS name
+  - `system_type`: Original scanner system type value
+  - `scan_start_time` / `scan_end_time`: Scan timing metadata
+  - Cloud identifiers (AWS instance ID, Azure VM ID, GCP instance ID)
   - Agent UUIDs
-  - Asset tags and labels
   - Scanner-specific attributes
 
 **Deduplication Strategy**:

@@ -6,6 +6,36 @@ This document tracks implementation tasks aligned with the MVP Feature Matrix in
 
 ---
 
+## ✅ COMPLETED: Enhanced Asset Type Schema Implementation (2025-01-02)
+
+### Enhanced Asset Categorisation Successfully Implemented
+The enhanced asset type schema with categories and subtypes has been completed and tested. The system now supports sophisticated asset classification with 86 standard subtypes.
+
+#### Changes Completed:
+1. **AssetCategory and AssetSubtype Models**: Created with 5 categories and 86 subtypes ✅
+2. **Migration 0007**: Successfully created and applied enhanced asset type schema ✅
+3. **Enhanced Nessus Mapping**: System-type to subtype transformation working ✅
+4. **Management Commands**: setup_asset_categories and setup_enhanced_nessus_mappings created ✅
+5. **Admin Interface**: Enhanced with category/subtype management ✅
+6. **Database Migration**: Existing AssetType data migrated to new structure ✅
+7. **Testing**: Successfully imported 7 assets with proper categorisation ✅
+
+#### Asset Categories and Subtypes Implemented:
+- **Host** (18 subtypes): Server, Workstation, Network Device, IoT Device, Firewall, Router, etc.
+- **Code Project** (11 subtypes): Repository, GitHub Repository, Application Project, Library, etc.
+- **Website** (6 subtypes): Web Application, API Endpoint, Subdomain, Base URL, etc.
+- **Image** (8 subtypes): Container Image, Docker Image, Virtual Machine Image, etc.
+- **Cloud Resource** (43 subtypes): AWS, Azure, GCP resources with provider-specific subtypes
+
+#### Enhanced Nessus Integration:
+- ✅ System-type detection: "general-purpose" → "Server" subtype mapping
+- ✅ Enhanced field mappings: fqdn, netbios_name, cloud instance IDs
+- ✅ Transformation rules: nessus_system_type_map, default_scanner_category
+- ✅ Smart fallback to scanner integration default category
+- ✅ Successfully tested with sample Nessus file import
+
+---
+
 ## ✅ COMPLETED: Schema Migration for Multi-Scanner Support (2025-01-02)
 
 ### Multi-Scanner Schema Successfully Implemented
@@ -277,32 +307,5 @@ Key themes:
 - **Phase 7**: Full API development (Month 5+)
 
 ---
-
-## Migration and Refactoring of Existing AssetType Table
-
-**Migration Steps:**
-1. **Backup Existing Data:**  
-   - Export all current `AssetType` records for reference and rollback.
-
-2. **Schema Migration:**  
-   - Rename or deprecate the current `AssetType` table.
-   - Create new `asset_categories` and `asset_subtypes` tables as per the enhanced schema.
-   - Migrate existing `AssetType` values to the new `asset_categories` table (e.g., Host, Website, Container, Code, Cloud).
-   - For each category, populate standard subtypes (from `ASSET_TYPES.md`).
-
-3. **Data Migration:**  
-   - Update all existing `Asset` records to reference the new `category_id` and (where possible) `subtype_id`.
-   - If subtype cannot be determined, set to NULL or a default value.
-
-4. **Code & Admin Refactor:**  
-   - Update Django models and admin to use the new tables.
-   - Remove or archive the old `AssetType` model after migration is verified.
-
-5. **Validation:**  
-   - Ensure all assets have a valid category.
-   - Spot-check that subtypes are correctly assigned where possible.
-
-**Rollback Plan:**
-- If issues arise, restore the original `AssetType` table and revert asset references.
 
 *Last Updated: 2025-01-02* 

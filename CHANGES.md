@@ -4,6 +4,40 @@
 
 Planned features and improvements for the next release:
 
+### Enhanced Asset Type Schema Implementation (2025-01-02)
+- **Completed migration 0007_enhanced_asset_types**:
+  - Created AssetCategory and AssetSubtype models with 5 categories and 86 subtypes
+  - Added default_asset_category field to ScannerIntegration model
+  - Migrated existing AssetType data to new category/subtype structure
+  - Maintained backward compatibility with legacy asset_type field
+- **Asset categorisation from ASSET_TYPES.md**:
+  - Host: 18 subtypes (Server, Workstation, Network Device, IoT Device, etc.)
+  - Code Project: 11 subtypes (Repository, GitHub Repository, Application Project, etc.)
+  - Website: 6 subtypes (Web Application, API Endpoint, Subdomain, etc.)
+  - Image: 8 subtypes (Container Image, Docker Image, Virtual Machine Image, etc.)
+  - Cloud Resource: 43 subtypes across AWS, Azure, and GCP providers
+- **Enhanced Nessus asset mapping**:
+  - System-type detection: Maps Nessus "general-purpose" → "Server" subtype
+  - Enhanced field mappings: fqdn, netbios_name, cloud instance IDs, scan times
+  - Transformation rules: nessus_system_type_map, default_scanner_category
+  - Smart categorisation with fallback to scanner integration defaults
+- **New management commands**:
+  - `setup_asset_categories` - Creates standard categories and subtypes
+  - `setup_enhanced_nessus_mappings` - Configures enhanced field mappings with asset type detection
+- **Admin interface enhancements**:
+  - Added AssetCategory and AssetSubtype admin with inline editing
+  - Enhanced filtering and search capabilities
+  - Subtype count display and cloud provider filtering
+- **Database improvements**:
+  - Fixed risk_score calculation overflow with proper type conversion
+  - Enhanced error handling for malformed data
+  - Optimised asset lookup with category/subtype relationships
+- **Successful testing**:
+  - Imported 7 assets with proper Host category and Server subtype mapping
+  - All assets correctly categorised based on system-type detection
+  - Enhanced metadata preserved: fqdn, netbios_name, original system_type
+  - Field mappings working correctly with ReportItem@attribute format
+
 ### Schema Migration for Multi-Scanner Support (2025-01-02)
 - **Completed migration 0006_multi_scanner_support**:
   - Added `type` field to ScannerIntegration model
