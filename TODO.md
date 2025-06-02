@@ -112,21 +112,21 @@ The critical schema changes have been completed to support multi-scanner environ
 ## ✅ COMPLETED: Phase 1.5 - Scanner Integration (FULLY COMPLETE)
 
 ### Nessus Parser - ✅ COMPLETE
-- ✅ **Complete XML parser** (nessus_scanreport_import.py - 513 lines)
-- ✅ **Field mapping engine** using database configuration
-- ✅ **Enhanced asset deduplication** (hostname + IP + categories)
-- ✅ **Vulnerability deduplication** by CVE/plugin ID and external source
-- ✅ **Finding creation** with proper asset/vulnerability relationships
-- ✅ **Comprehensive error handling** and data validation
-- ✅ **Progress tracking** and statistics reporting
-- ✅ **System-type to subtype mapping** (e.g., "general-purpose" → "Server")
+- [x] **Complete XML parser** (nessus_scanreport_import.py - 513 lines)
+- [x] **Field mapping engine** using database configuration
+- [x] **Enhanced asset deduplication** (hostname + IP + categories)
+- [x] **Vulnerability deduplication** by CVE/plugin ID and external source
+- [x] **Finding creation** with proper asset/vulnerability relationships
+- [x] **Comprehensive error handling** and data validation
+- [x] **Progress tracking** and statistics reporting
+- [x] **System-type to subtype mapping** (e.g., "general-purpose" → "Server")
 
 ### Field Mapping System - ✅ COMPLETE
-- ✅ **Database-driven field mappings** (no code changes needed for new scanners)
-- ✅ **Transformation rules** (severity mapping, data conversion)
-- ✅ **Enhanced mappings** for cloud IDs, scan times, metadata
-- ✅ **ReportItem@attribute format** parsing
-- ✅ **Successfully tested** with 7 assets, 48 findings import
+- [x] **Database-driven field mappings** (no code changes needed for new scanners)
+- [x] **Transformation rules** (severity mapping, data conversion)
+- [x] **Enhanced mappings** for cloud IDs, scan times, metadata
+- [x] **ReportItem@attribute format** parsing
+- [x] **Successfully tested** with 7 assets, 48 findings import
 
 ---
 
