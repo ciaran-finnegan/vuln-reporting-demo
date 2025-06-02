@@ -12,11 +12,11 @@ This document tracks implementation tasks aligned with the MVP Feature Matrix in
 | Branch | Status | Completed | Description |
 |--------|---------|-----------|-------------|
 | `feature/core-mvp` | 🔄 **Ready to Merge** | 2025-01-02 | Complete Django backend, enhanced asset schema, Nessus parser, 7 migrations, admin interface |
+| `feature/django-upload-api` | 🔄 **Ready to Merge** | 2025-01-02 | Django upload endpoint with Supabase JWT authentication, comprehensive testing |
 
 ### 🚀 Planned Branches
 | Branch | Priority | Phase | Description |
 |--------|----------|-------|-------------|
-| `feature/django-upload-api` | **High** | 1A | Django upload endpoint (`POST /api/upload/nessus`) |
 | `feature/lovable-ui-supabase` | **High** | 1B | lovable.dev UI + Supabase authentication & storage |
 | `feature/django-reporting-api` | **Medium** | 1C | Django reporting endpoints (`GET /api/reports/mttr`, `/sla`) |
 | `feature/ui-dashboard` | **Medium** | 2 | Core UI pages (Dashboard, Assets, Vulnerabilities, Findings) |
@@ -25,9 +25,9 @@ This document tracks implementation tasks aligned with the MVP Feature Matrix in
 
 ### 📊 Branch Completion Summary
 - **Completed**: 0 branches merged to main
-- **Ready to Merge**: 1 branch (`feature/core-mvp`)
+- **Ready to Merge**: 2 branches (`feature/core-mvp`, `feature/django-upload-api`)
 - **In Progress**: 0 branches  
-- **Planned**: 6 branches
+- **Planned**: 5 branches
 
 ---
 
@@ -140,18 +140,21 @@ The critical schema changes have been completed to support multi-scanner environ
 
 ## 🔥 IMMEDIATE TASKS: Prioritized Implementation Plan
 
-### Phase 1A: Django Upload Endpoint (Highest Priority - Next Branch)
-- [ ] **Create Django API views** (views.py is currently empty - only 4 lines)
-- [ ] **POST /api/upload/nessus** - File upload and parsing endpoint
-  - [ ] File upload handling with validation
-  - [ ] Integration with existing nessus_scanreport_import.py parser
-  - [ ] Progress tracking and error responses
-  - [ ] JSON response with import statistics
-- [ ] **URL routing configuration** for upload endpoint
-- [ ] **Basic error responses** and logging
-- [ ] **CORS configuration** for frontend access
-- [ ] **File size limits** and validation
-- [ ] **Test endpoint** with existing Nessus sample files
+### ✅ COMPLETED: Phase 1A - Django Upload Endpoint (2025-01-02)
+- [x] **Create Django API views** (views.py with authentication support)
+- [x] **POST /api/upload/nessus** - File upload and parsing endpoint
+  - [x] File upload handling with validation
+  - [x] Integration with existing nessus_scanreport_import.py parser
+  - [x] Progress tracking and error responses
+  - [x] JSON response with import statistics
+- [x] **URL routing configuration** for upload endpoint
+- [x] **Basic error responses** and logging
+- [x] **CORS configuration** for frontend access
+- [x] **File size limits** and validation
+- [x] **Test endpoint** with existing Nessus sample files
+- [x] **Supabase JWT Authentication** - Optional authentication with user context
+- [x] **Authentication Backend** - Complete Supabase JWT integration
+- [x] **Comprehensive Testing** - Full test suite with authenticated/unauthenticated scenarios
 
 ### Phase 1B: lovable.dev UI + Supabase Auth (Second Priority)
 - [ ] **Create Supabase project**
@@ -176,6 +179,19 @@ The critical schema changes have been completed to support multi-scanner environ
   - [ ] Group by severity and business group
 - [ ] **Connect Django to Supabase** database (migrate from local PostgreSQL)
 - [ ] **Test reporting endpoints** with cloud database
+
+### Phase 1D: File Upload Enhancements (Fourth Priority)
+- [ ] **Duplicate File Detection** - Prevent duplicate uploads using file hashing
+  - [ ] Add SHA-256 hash calculation for uploaded files
+  - [ ] Store file hashes in database (new `file_hash` field on ScannerUpload model)
+  - [ ] Check for existing hash before processing
+  - [ ] Return appropriate response for duplicate files (409 Conflict)
+  - [ ] Add CLI option to force re-import of duplicate files
+  - [ ] Update API documentation with duplicate handling behaviour
+- [ ] **Upload History & Management**
+  - [ ] Track upload metadata (timestamp, user, file size, processing status)
+  - [ ] API endpoint to list previous uploads
+  - [ ] Delete/reprocess uploaded files functionality
 
 ---
 

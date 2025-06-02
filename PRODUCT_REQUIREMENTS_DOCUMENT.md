@@ -864,6 +864,36 @@ Tasks:
 - Test reporting with cloud data
 ```
 
+### 7.2.1 Testing & Development Tools
+
+The platform includes comprehensive testing and development tools organised in the `/commands` directory:
+
+#### Testing Infrastructure (`/commands/testing/`)
+- **API Authentication Testing**: `test_upload_api.py` validates JWT token handling
+- **Upload Validation**: Tests both authenticated and unauthenticated file uploads
+- **Error Scenario Testing**: Validates handling of invalid files and tokens
+- **Environment Integration**: Automatically loads Supabase credentials from `.env`
+
+#### Data Generation (`/commands/data_generation/`)
+- **Synthetic Nessus Generation**: `generate_weekly_nessus_files.py` creates realistic test data
+- **Progressive Data Simulation**: Multiple weeks with varying host/vulnerability counts
+- **Scan Profile Simulation**: Production, DMZ, and development environments
+- **Realistic Vulnerability Data**: Proper CVEs, plugin IDs, and CVSS scores
+
+#### Usage Examples
+```bash
+# Test authentication implementation
+cd commands/testing && python test_upload_api.py
+
+# Generate test data for development
+cd commands/data_generation && python generate_weekly_nessus_files.py
+```
+
+These tools are essential for:
+- **Development Testing**: Validating authentication and upload functionality
+- **Integration Testing**: End-to-end API testing with real data flows
+- **Performance Testing**: Large datasets for load testing
+- **Demo Preparation**: Consistent, realistic data for demonstrations
 ### 7.3 Original Phase Structure (Reference)
 
 > **Note**: The original phase structure below is for reference. Actual implementation has progressed beyond the original timeline due to comprehensive backend development in feature/core-mvp.

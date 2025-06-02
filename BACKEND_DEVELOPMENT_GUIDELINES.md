@@ -5,8 +5,8 @@
 ```
 /riskradar/                # Django project root ✅ IMPLEMENTED
     __init__.py           ✅
-    settings.py           ✅ Complete PostgreSQL configuration
-    urls.py               ✅ Basic admin routing (API routes pending)
+    settings.py           ✅ Complete PostgreSQL configuration + Supabase auth
+    urls.py               ✅ Basic admin + API routing
     wsgi.py               ✅
     asgi.py               ✅
 
@@ -14,10 +14,12 @@
     __init__.py           ✅
     admin.py              ✅ Enhanced with AssetCategory/AssetSubtype management
     apps.py               ✅
-    models.py             ✅ Complete schema (356 lines, 7 tables + enhanced asset types)
-    views.py              ❌ PENDING (only 4 lines - needs API endpoints)
+    models.py             ✅ Complete schema (360+ lines, UserProfile + enhanced asset types)
+    views.py              ✅ API endpoints with authentication support
+    authentication.py     ✅ Supabase JWT authentication backend
     forms.py              ✅ FieldMapping forms
     nessus_scanreport_import.py  ✅ Complete parser (513 lines)
+    urls.py               ✅ API URL routing
     
     management/           ✅ FULLY IMPLEMENTED
         commands/         ✅ 6 commands implemented
@@ -32,9 +34,8 @@
     migrations/           ✅ FULLY IMPLEMENTED
         __init__.py       ✅
         0001_initial.py   ✅ Base schema
-        0002-0005_*.py    ✅ Incremental updates
-        0006_multi_scanner_support.py ✅ Multi-scanner schema
-        0007_enhanced_asset_types.py ✅ Categories & subtypes
+        0002-0007_*.py    ✅ Incremental updates including UserProfile
+        0008_*.py         ✅ Latest authentication migration
         
     tests/                ❌ PENDING (placeholder files only)
         __init__.py       ✅
@@ -42,8 +43,17 @@
         test_views.py     ❌ TODO
         test_api.py       ❌ TODO
 
+/commands/                ✅ NEW - Organised script directory
+    README.md             ✅ Complete documentation
+    testing/              ✅ Test and validation scripts
+        README.md         ✅ Testing documentation
+        test_upload_api.py ✅ Authentication testing script
+    data_generation/      ✅ Synthetic data generation
+        README.md         ✅ Data generation documentation
+        generate_weekly_nessus_files.py ✅ Nessus file generator
+
 /manage.py                ✅ IMPLEMENTED
-/requirements.txt         ✅ IMPLEMENTED (Django, psycopg2, etc.)
+/requirements.txt         ✅ IMPLEMENTED (Django, PyJWT, etc.)
 /.env                     ❌ TODO (environment variables)
 /Dockerfile               ❌ TODO (containerisation)
 
@@ -51,6 +61,8 @@
 /core/serializers.py     ❌ TODO (DRF serializers for API endpoints)
 /core/reports.py         ❌ TODO (CSV/PDF reporting logic)
 /core/utils.py           ❌ TODO (shared utility functions)
+/commands/maintenance/   ❌ TODO (database operations)
+/commands/deployment/    ❌ TODO (setup scripts)
 ```
 
 ## Implementation Status Summary
@@ -107,10 +119,23 @@
 - Update architecture and todo docs if you make any structural changes.
 - Document any new endpoints or models in the appropriate section of the architecture doc.
 
-### 7. LLM/AI Usage
+### 7. Script and Utility File Organisation
+- **ALL scripts, utilities, and test files MUST be placed in the `/commands` directory**
+- **NEVER create scripts in the project root directory**
+- Use appropriate subdirectories:
+  - `/commands/testing/` - Test and validation scripts
+  - `/commands/data_generation/` - Synthetic data creation scripts
+  - `/commands/maintenance/` - Database and system maintenance scripts
+  - `/commands/deployment/` - Deployment and setup scripts
+- Each subdirectory must have a README.md explaining its scripts
+- Scripts must handle relative paths correctly for their subdirectory location
+
+### 8. LLM/AI Usage
 - When using an LLM to generate code, always specify the file and function/class to edit.
 - Do not allow the LLM to move, rename, or split files unless explicitly instructed.
 - LLM should always check for existing conventions before introducing new patterns.
+- **CRITICAL: LLM must ALWAYS place new scripts in `/commands` subdirectories, NEVER in project root**
+- LLM must update relevant README files when adding new scripts
 
 ---
 

@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from django.utils import timezone
 
 SEVERITY_CHOICES = [
@@ -357,3 +358,28 @@ class AssetTag(models.Model):
         if self.tag_key and self.tag_value:
             return f"{self.name} ({self.tag_key}:{self.tag_value})"
         return self.name
+
+
+class UserProfile(models.Model):
+    """
+    Extended user profile to store Supabase-specific information.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    supabase_user_id = models.CharField(max_length=255, unique=True)
+    business_group = models.ForeignKey(
+        'BusinessGroup', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="User's default business group for data access"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.supabase_user_id}"
+    
+    class Meta:
+        db_table = 'user_profile'
+        verbose_name = "User Profile"
+        verbose_name_plural = "User Profiles"

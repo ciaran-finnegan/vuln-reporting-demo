@@ -4,6 +4,39 @@
 
 Planned features and improvements for the next release:
 
+### Django Upload API with Authentication (2025-01-02)
+- **Complete API endpoint implementation**:
+  - Created Django views.py with file upload handling and validation
+  - Implemented POST /api/v1/upload/nessus endpoint with comprehensive error handling
+  - Added API status and upload info endpoints for system verification
+  - Configured URL routing with core/urls.py and main URL inclusion
+- **Supabase JWT Authentication integration**:
+  - Created authentication.py with SupabaseJWTAuthentication backend
+  - Implemented JWT token validation with proper Supabase format support
+  - Added OptionalSupabaseJWTAuthentication for MVP permissive access
+  - User auto-creation with UserProfile model linking to business groups
+- **Enhanced security and configuration**:
+  - Added CORS support for frontend integration
+  - Updated settings.py with Supabase configuration and authentication classes
+  - Created UserProfile model with migration 0008 for user context tracking
+  - Added PyJWT dependency for token handling
+- **Comprehensive testing infrastructure**:
+  - Created /commands directory structure for organised utility scripts
+  - Implemented test_upload_api.py with full authentication test coverage
+  - Added environment variable loading from riskradar/.env
+  - Tests cover: unauthenticated uploads, authenticated uploads, invalid tokens, error scenarios
+- **File upload features**:
+  - Integration with existing nessus_scanreport_import.py parser
+  - File validation (type, size limits up to 100MB)
+  - Detailed response with statistics and user context
+  - Authenticated uploads show user email and authentication status
+  - Temporary file handling with proper cleanup
+- **Documentation and organisation**:
+  - Created comprehensive README files for commands directory structure
+  - Updated BACKEND_DEVELOPMENT_GUIDELINES.md with script organisation rules
+  - Enhanced PRODUCT_REQUIREMENTS_DOCUMENT.md with testing infrastructure details
+  - Updated README.md with commands usage examples
+  - Clear guidelines for LLM/AI agents on script placement
 ### Enhanced Asset Type Schema Implementation (2025-01-02)
 - **Completed migration 0007_enhanced_asset_types**:
   - Created AssetCategory and AssetSubtype models with 5 categories and 86 subtypes

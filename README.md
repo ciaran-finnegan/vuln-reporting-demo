@@ -60,17 +60,62 @@ python manage.py runserver
 /riskradar/                # Django project root
   /core/                   # Main Django app
     models.py              # ORM models
-    scanner_import.py      # Nessus import logic
-    management/commands/   # Batch commands
-    reports.py             # CSV/PDF reporting
+    views.py               # API endpoints
+    authentication.py      # Supabase JWT auth
+    nessus_scanreport_import.py  # Nessus import logic
+    management/commands/   # Django management commands
+    migrations/            # Database migrations
     ...
   manage.py                # Django management script
   requirements.txt         # Python dependencies
   .env                     # Environment variables
-  Dockerfile               # (optional)
+/commands/                 # Utility scripts and tools
+  testing/                 # Test scripts
+    test_upload_api.py     # API authentication testing
+  data_generation/         # Test data generation
+    generate_weekly_nessus_files.py  # Synthetic Nessus data
 /docs/                     # Architecture & design docs
 /data/                     # Sample Nessus files, CSVs
 ```
+
+---
+
+## Commands & Scripts
+
+The `/commands` directory contains utility scripts organised by function:
+
+### Testing Scripts (`/commands/testing/`)
+```bash
+# Test upload API with authentication
+cd commands/testing
+python test_upload_api.py
+```
+
+**Features:**
+- Tests both authenticated and unauthenticated uploads
+- Validates JWT token handling
+- Tests error scenarios (invalid files, tokens)
+- Requires Django server running and `.env` configured
+
+### Data Generation (`/commands/data_generation/`)
+```bash
+# Generate synthetic test data
+cd commands/data_generation
+python generate_weekly_nessus_files.py
+```
+
+**Features:**
+- Creates 4 weeks of realistic Nessus scan data
+- Multiple scan profiles (production, DMZ, development)
+- Progressive data growth simulation
+- Outputs to `data/synthetic_nessus/`
+
+### Environment Setup
+Scripts automatically load environment variables from `riskradar/.env`:
+- `SUPABASE_JWT_SECRET` - For authentication testing
+- `SUPABASE_PROJECT_ID`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` - For API integration
+
+For detailed usage instructions, see `commands/README.md` and subdirectory README files.
 
 ---
 
