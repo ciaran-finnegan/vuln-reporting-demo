@@ -217,9 +217,12 @@ cp /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/privkey.pem /opt/r
 chown -R deploy:deploy /opt/riskradar/ssl
 ```
 
-### 2.6 Setup SSL renewal
+### 2.6 Setup SSL renewal (Optional but Recommended)
 ```bash
-# Create renewal script
+# Note: Certbot automatically sets up SSL renewal via systemd timer when installed
+# However, since we copy certificates to Docker, we need a script to update Docker certificates
+
+# Create renewal hook script (optional - only needed if you want automatic Docker certificate updates)
 nano /etc/cron.daily/ssl-renewal
 
 # For development environment, add this content:
@@ -228,7 +231,7 @@ certbot renew --quiet
 cp /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/fullchain.pem /opt/riskradar/ssl/cert.pem
 cp /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/privkey.pem /opt/riskradar/ssl/key.pem
 chown -R deploy:deploy /opt/riskradar/ssl
-docker-compose -f /opt/riskradar/docker-compose.dev.yml restart nginx
+cd /opt/riskradar && docker-compose -f docker-compose.dev.yml restart nginx
 
 # For production environment, add this content instead:
 #!/bin/bash
@@ -236,10 +239,14 @@ certbot renew --quiet
 cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /opt/riskradar/ssl/cert.pem
 cp /etc/letsencrypt/live/your-domain.com/privkey.pem /opt/riskradar/ssl/key.pem
 chown -R deploy:deploy /opt/riskradar/ssl
-docker-compose -f /opt/riskradar/docker-compose.yml restart nginx
+cd /opt/riskradar && docker-compose restart nginx
 
 # Make executable
 chmod +x /etc/cron.daily/ssl-renewal
+
+# Check automatic renewal is working
+systemctl status certbot.timer
+certbot renew --dry-run
 ```
 
 ## 3. GitHub Configuration
@@ -301,30 +308,15 @@ ls -la
 cat .env | head -5
 ```
 
-## 4. Database Setup
+## 4. Initial Deployment and Setup
 
-### 4.1 Initialize Database
+### 4.1 Start All Services
 ```bash
-# Start database service
-docker-compose up -d db
-
-# Wait for database to be ready
-sleep 30
-
-# Run initial migrations and setup
-docker-compose exec db createdb -U riskradar riskradar
-```
-
-## 5. Initial Deployment
-
-### 5.1 Test Local Build
-```bash
+# Start all services (web, database, nginx)
 # For development environment:
-docker-compose -f docker-compose.dev.yml build
 docker-compose -f docker-compose.dev.yml up -d
 
 # For production environment:
-# docker-compose build
 # docker-compose up -d
 
 # Check all services are running
@@ -334,6 +326,21 @@ docker-compose -f docker-compose.dev.yml ps
 # For production:
 # docker-compose ps
 
+# Wait a moment for database to initialize, then check logs if needed
+docker-compose -f docker-compose.dev.yml logs db
+```
+
+## 5. Configure Application
+
+### 5.1 Run Database Migrations and Setup
+```bash
+# Collect static files first
+# For development:
+docker-compose -f docker-compose.dev.yml exec web python manage.py collectstatic --noinput
+
+# For production:
+# docker-compose exec web python manage.py collectstatic --noinput
+
 # Run migrations
 # For development:
 docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
@@ -341,7 +348,7 @@ docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
 # For production:
 # docker-compose exec web python manage.py migrate
 
-# Create superuser
+# Create superuser (you'll be prompted for username, email, password)
 # For development:
 docker-compose -f docker-compose.dev.yml exec web python manage.py createsuperuser
 

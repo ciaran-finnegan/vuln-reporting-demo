@@ -54,9 +54,6 @@ COPY riskradar/ .
 RUN chown -R django:django /app
 USER django
 
-# Collect static files
-RUN python manage.py collectstatic --noinput --clear
-
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:$PORT/api/status/ || exit 1
