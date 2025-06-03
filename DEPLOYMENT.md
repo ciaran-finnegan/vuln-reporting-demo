@@ -310,9 +310,62 @@ cat .env | head -5
 
 ## 4. Initial Deployment and Setup
 
-### 4.1 Start All Services
+### 4.1 Configure Host Nginx (Development Environment)
+**Note**: For the development environment, we use host nginx instead of the Docker nginx service to avoid port conflicts with SSL certificates.
+
 ```bash
-# Start all services (web, database, nginx)
+# As root, configure nginx to proxy to Django application
+cat > /etc/nginx/sites-available/riskradar <<EOF
+server {
+    listen 80;
+    server_name riskradar.dev.securitymetricshub.com;
+    return 301 https://\$server_name\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name riskradar.dev.securitymetricshub.com;
+
+    ssl_certificate /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/privkey.pem;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    # Static files
+    location /static/ {
+        alias /opt/riskradar/staticfiles/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Proxy to Django application
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+# Enable the site
+ln -sf /etc/nginx/sites-available/riskradar /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl reload nginx
+```
+
+### 4.2 Start Application Services
+```bash
+# Switch to deploy user
+su - deploy
+cd /opt/riskradar
+
+# Start services (web and database only - nginx runs on host)
 # For development environment:
 docker-compose -f docker-compose.dev.yml up -d
 
@@ -334,12 +387,22 @@ docker-compose -f docker-compose.dev.yml logs db
 
 ### 5.1 Run Database Migrations and Setup
 ```bash
+# Create static files directory with correct permissions
+mkdir -p /opt/riskradar/staticfiles
+chown -R deploy:deploy /opt/riskradar/staticfiles
+
 # Collect static files first
+# Note: If you get permission errors, run collectstatic as root user:
 # For development:
-docker-compose -f docker-compose.dev.yml exec web python manage.py collectstatic --noinput
+docker-compose -f docker-compose.dev.yml exec --user root web python manage.py collectstatic --noinput
+docker-compose -f docker-compose.dev.yml exec --user root web chown -R django:django /app/staticfiles
 
 # For production:
-# docker-compose exec web python manage.py collectstatic --noinput
+# docker-compose exec --user root web python manage.py collectstatic --noinput
+# docker-compose exec --user root web chown -R django:django /app/staticfiles
+
+# Then fix host permissions:
+chown -R deploy:deploy /opt/riskradar/staticfiles
 
 # Run migrations
 # For development:

@@ -9,7 +9,7 @@ services:
       - DEBUG=True
       - DATABASE_URL=${DATABASE_URL}
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
     volumes:
       - ./temp_uploads:/app/temp_uploads
       - ./staticfiles:/app/staticfiles
@@ -27,18 +27,7 @@ services:
       - postgres_dev_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
-      - ./staticfiles:/var/www/static:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - web
-    restart: unless-stopped
+
 
 volumes:
   postgres_dev_data: 
