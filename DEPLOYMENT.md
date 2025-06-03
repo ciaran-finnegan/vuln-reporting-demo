@@ -34,11 +34,6 @@ Type: A
 Name: www
 Value: YOUR_PRODUCTION_DROPLET_IP
 TTL: 300
-
-Type: CNAME
-Name: api
-Value: your-domain.com
-TTL: 300
 ```
 
 **For Development (riskradar.dev.securitymetricshub.com):**
@@ -48,6 +43,10 @@ Name: riskradar.dev
 Value: YOUR_DEVELOPMENT_DROPLET_IP
 TTL: 300
 ```
+
+Perfect! Your DNS is correctly configured. The API will be accessible at:
+- **Development**: `https://riskradar.dev.securitymetricshub.com/api/`
+- **Production**: `https://your-domain.com/api/`
 
 ## 2. Digital Ocean Setup
 
@@ -114,21 +113,67 @@ ufw enable
 # Install Certbot
 apt install certbot python3-certbot-nginx -y
 
-# Get SSL certificate (replace with your domain)
-certbot certonly --standalone -d your-domain.com -d www.your-domain.com
+# Configure nginx for ACME challenge (nginx is installed automatically)
+mkdir -p /var/www/html/.well-known/acme-challenge
+
+# Create nginx config for ACME challenges
+tee /etc/nginx/sites-available/default > /dev/null <<EOF
+server {
+    listen 80;
+    server_name riskradar.dev.securitymetricshub.com;  # For dev environment
+    # server_name your-domain.com www.your-domain.com;  # For production
+    
+    root /var/www/html;
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+        try_files \$uri =404;
+    }
+    
+    location / {
+        return 404;
+    }
+}
+EOF
+
+# Enable the site and reload nginx
+ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
+
+# Get SSL certificate using webroot method
+# For development:
+certbot certonly --webroot -w /var/www/html -d riskradar.dev.securitymetricshub.com
+
+# For production:
+# certbot certonly --webroot -w /var/www/html -d your-domain.com -d www.your-domain.com
 
 # Verify certificates location
-ls -la /etc/letsencrypt/live/your-domain.com/
+# For development:
+ls -la /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/
+
+# For production:
+# ls -la /etc/letsencrypt/live/your-domain.com/
 ```
 
 ### 2.4 Setup Application Environment
 ```bash
+# Fix directory ownership first
+chown -R deploy:deploy /opt/riskradar
+
 # Switch to deploy user
 su - deploy
 cd /opt/riskradar
 
-# Create environment file
-cp production.env.template .env
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/vuln-reporting-demo.git .
+
+# Create environment file (use correct template for each environment)
+# For development environment:
+cp development.env.template .env
+
+# For production environment:
+# cp production.env.template .env
 
 # Edit environment file with your values
 nano .env
@@ -136,25 +181,56 @@ nano .env
 
 Update `.env` with your specific values:
 ```bash
-SECRET_KEY=$(python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
+# Generate a secret key
+SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')
 # Copy the output and paste it in .env file
+
+# For development, update these key values:
+DEBUG=True
+SECRET_KEY=your-generated-secret-key-here
+ALLOWED_HOSTS=riskradar.dev.securitymetricshub.com,localhost,127.0.0.1
+DATABASE_URL=postgresql://riskradar_dev:your-secure-password@db:5432/riskradar_dev
+POSTGRES_PASSWORD=your-secure-password
+
+# For production, update these key values:
+# DEBUG=False
+# SECRET_KEY=your-generated-secret-key-here
+# ALLOWED_HOSTS=your-domain.com,www.your-domain.com
+# DATABASE_URL=postgresql://riskradar:your-secure-password@db:5432/riskradar
+# POSTGRES_PASSWORD=your-secure-password
 ```
 
 ### 2.5 Setup SSL certificates for Docker
 ```bash
 # Create SSL directory for Docker
-sudo mkdir -p /opt/riskradar/ssl
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /opt/riskradar/ssl/cert.pem
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem /opt/riskradar/ssl/key.pem
-sudo chown -R deploy:deploy /opt/riskradar/ssl
+mkdir -p /opt/riskradar/ssl
+
+# For development environment:
+cp /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/fullchain.pem /opt/riskradar/ssl/cert.pem
+cp /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/privkey.pem /opt/riskradar/ssl/key.pem
+
+# For production environment:
+# cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /opt/riskradar/ssl/cert.pem
+# cp /etc/letsencrypt/live/your-domain.com/privkey.pem /opt/riskradar/ssl/key.pem
+
+# Set proper ownership
+chown -R deploy:deploy /opt/riskradar/ssl
 ```
 
 ### 2.6 Setup SSL renewal
 ```bash
 # Create renewal script
-sudo nano /etc/cron.daily/ssl-renewal
+nano /etc/cron.daily/ssl-renewal
 
-# Add this content:
+# For development environment, add this content:
+#!/bin/bash
+certbot renew --quiet
+cp /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/fullchain.pem /opt/riskradar/ssl/cert.pem
+cp /etc/letsencrypt/live/riskradar.dev.securitymetricshub.com/privkey.pem /opt/riskradar/ssl/key.pem
+chown -R deploy:deploy /opt/riskradar/ssl
+docker-compose -f /opt/riskradar/docker-compose.dev.yml restart nginx
+
+# For production environment, add this content instead:
 #!/bin/bash
 certbot renew --quiet
 cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /opt/riskradar/ssl/cert.pem
@@ -163,7 +239,7 @@ chown -R deploy:deploy /opt/riskradar/ssl
 docker-compose -f /opt/riskradar/docker-compose.yml restart nginx
 
 # Make executable
-sudo chmod +x /etc/cron.daily/ssl-renewal
+chmod +x /etc/cron.daily/ssl-renewal
 ```
 
 ## 3. GitHub Configuration
@@ -209,20 +285,20 @@ Add these repository secrets:
 | `DEV_USERNAME` | `deploy` | SSH username for development |
 | `DEV_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for development deployment |
 
-### 3.4 Copy Application Files to Server
+### 3.4 Final Application Setup
 ```bash
-# On the droplet as deploy user
+# On the droplet as deploy user (should already be done in section 2.4)
 cd /opt/riskradar
 
-# Clone your repository or copy necessary files
-git clone https://github.com/YOUR_USERNAME/vuln-reporting-demo.git .
+# Verify repository is cloned and files exist
+ls -la
 
-# Update nginx.conf with your domain
-sed -i 's/your-domain.com/YOUR_ACTUAL_DOMAIN/g' nginx.conf
+# For development environment, no need to update nginx.dev.conf as it's already configured
+# For production environment, update nginx.conf with your domain:
+# sed -i 's/your-domain.com/YOUR_ACTUAL_DOMAIN/g' nginx.conf
 
-# Update docker-compose.yml environment file path
-nano docker-compose.yml
-# Ensure env_file points to your .env file
+# Verify environment file exists
+cat .env | head -5
 ```
 
 ## 4. Database Setup
@@ -243,26 +319,53 @@ docker-compose exec db createdb -U riskradar riskradar
 
 ### 5.1 Test Local Build
 ```bash
-# Build and test locally on the droplet
-docker-compose build
-docker-compose up -d
+# For development environment:
+docker-compose -f docker-compose.dev.yml build
+docker-compose -f docker-compose.dev.yml up -d
+
+# For production environment:
+# docker-compose build
+# docker-compose up -d
 
 # Check all services are running
-docker-compose ps
+# For development:
+docker-compose -f docker-compose.dev.yml ps
+
+# For production:
+# docker-compose ps
 
 # Run migrations
-docker-compose exec web python manage.py migrate
+# For development:
+docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
+
+# For production:
+# docker-compose exec web python manage.py migrate
 
 # Create superuser
-docker-compose exec web python manage.py createsuperuser
+# For development:
+docker-compose -f docker-compose.dev.yml exec web python manage.py createsuperuser
+
+# For production:
+# docker-compose exec web python manage.py createsuperuser
 
 # Setup initial data
-docker-compose exec web python manage.py setup_asset_categories
-docker-compose exec web python manage.py populate_initial_data
+# For development:
+docker-compose -f docker-compose.dev.yml exec web python manage.py setup_asset_categories
+docker-compose -f docker-compose.dev.yml exec web python manage.py populate_initial_data
+
+# For production:
+# docker-compose exec web python manage.py setup_asset_categories
+# docker-compose exec web python manage.py populate_initial_data
 ```
 
 ### 5.2 Test Application
 Visit your domain:
+
+**For development environment:**
+- `https://riskradar.dev.securitymetricshub.com/api/status/` - Should return 200 OK
+- `https://riskradar.dev.securitymetricshub.com/admin/` - Django admin login
+
+**For production environment:**
 - `https://your-domain.com/api/status/` - Should return 200 OK
 - `https://your-domain.com/admin/` - Django admin login
 
@@ -277,8 +380,13 @@ Visit your domain:
 ### 6.2 Monitor Deployment
 ```bash
 # On the droplet, monitor logs
-docker-compose logs -f web
-docker-compose logs -f nginx
+# For development:
+docker-compose -f docker-compose.dev.yml logs -f web
+docker-compose -f docker-compose.dev.yml logs -f nginx
+
+# For production:
+# docker-compose logs -f web
+# docker-compose logs -f nginx
 ```
 
 ## 7. Post-Deployment Configuration
@@ -420,6 +528,26 @@ docker system df
 ## Quick Reference
 
 ### Essential Commands
+
+**For Development Environment:**
+```bash
+# Deploy latest version
+cd /opt/riskradar && docker-compose -f docker-compose.dev.yml pull && docker-compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker-compose -f docker-compose.dev.yml logs -f
+
+# Run Django commands
+docker-compose -f docker-compose.dev.yml exec web python manage.py [command]
+
+# Database backup
+docker-compose -f docker-compose.dev.yml exec -T db pg_dump -U riskradar_dev riskradar_dev > backup.sql
+
+# Restart services
+docker-compose -f docker-compose.dev.yml restart [service_name]
+```
+
+**For Production Environment:**
 ```bash
 # Deploy latest version
 cd /opt/riskradar && docker-compose pull && docker-compose up -d
