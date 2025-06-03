@@ -281,15 +281,44 @@ Go to your repository → Settings → Environments
 2. Name: `dev`
 3. Add environment secrets:
 
+**Core Secrets:**
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
 | `HOST` | `YOUR_DEV_DROPLET_IP` | Development droplet IP address |
 | `USERNAME` | `deploy` | SSH username for development |
 | `SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for development deployment |
 | `SECRET_KEY` | `your-generated-dev-secret-key` | Django secret key for development |
-| `DATABASE_URL` | `postgresql://riskradar_dev:password@db:5432/riskradar_dev` | Development database URL |
-| `POSTGRES_PASSWORD` | `your-dev-db-password` | Development database password |
 | `DJANGO_ALLOWED_HOSTS` | `riskradar.dev.securitymetricshub.com,localhost,127.0.0.1` | Allowed hosts for development |
+
+**Database Secrets:**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `DATABASE_URL` | `postgresql://postgres.xxx:password@host:6543/postgres` | Supabase database URL |
+| `POSTGRES_DB` | `aws-0-ap-southeast-2.pooler.supabase.com` | Database host for legacy config |
+| `POSTGRES_USER` | `postgres` | Database username |
+| `POSTGRES_PASSWORD` | `your-supabase-password` | Database password |
+| `DB_HOST` | `aws-0-ap-southeast-2.pooler.supabase.com` | Additional database host |
+| `DB_PASSWORD` | `your-supabase-password` | Additional database password |
+
+**Supabase Secrets:**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `SUPABASE_PROJECT_ID` | `jfcpfoehtcldmappkdsm` | Your Supabase project ID |
+| `SUPABASE_URL` | `https://jfcpfoehtcldmappkdsm.supabase.co` | Your Supabase URL |
+| `SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase service role key |
+| `SUPABASE_JWT_SECRET` | `olC5YZLARU6eszH9xFwIO02RvCjH...` | Your Supabase JWT secret |
+
+**Optional Secrets (can be empty for basic setup):**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `EMAIL_HOST` | `smtp.your-provider.com` | SMTP server (optional) |
+| `EMAIL_PORT` | `587` | SMTP port (optional) |
+| `EMAIL_HOST_USER` | `your-email@domain.com` | SMTP username (optional) |
+| `EMAIL_HOST_PASSWORD` | `your-smtp-password` | SMTP password (optional) |
+| `CORS_ALLOWED_ORIGINS` | `https://riskradar.dev.securitymetricshub.com,http://localhost:3000` | CORS allowed origins |
+| `LOG_LEVEL` | `ERROR` | Logging level |
+| `MVP_ALLOW_ANONYMOUS` | `True` | Allow anonymous access |
 
 #### Create Production Environment:
 1. Click "New environment"
@@ -298,25 +327,46 @@ Go to your repository → Settings → Environments
    - ✅ Required reviewers (add yourself)
    - ✅ Wait timer: 0 minutes
    - ✅ Deployment branches: Selected branches only → `main`
-4. Add environment secrets:
+4. Add environment secrets (same structure as dev, but with production values):
 
+**Core Secrets:**
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
 | `HOST` | `YOUR_PROD_DROPLET_IP` | Production droplet IP address |
 | `USERNAME` | `deploy` | SSH username for production |
 | `SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for production deployment |
 | `SECRET_KEY` | `your-generated-prod-secret-key` | Django secret key for production |
-| `DATABASE_URL` | `postgresql://riskradar:password@db:5432/riskradar` | Production database URL |
-| `POSTGRES_PASSWORD` | `your-prod-db-password` | Production database password |
 | `DJANGO_ALLOWED_HOSTS` | `your-domain.com,www.your-domain.com` | Allowed hosts for production |
 
-#### Optional Environment Variables (for both environments):
+**Database Secrets:** (same Supabase database can be used for both environments)
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
-| `SUPABASE_PROJECT_ID` | `your-project-id` | Supabase project ID (if using) |
-| `SUPABASE_ANON_KEY` | `your-anon-key` | Supabase anonymous key (if using) |
-| `SUPABASE_URL` | `https://your-project.supabase.co` | Supabase URL (if using) |
-| `SUPABASE_JWT_SECRET` | `your-jwt-secret` | Supabase JWT secret (if using) |
+| `DATABASE_URL` | `postgresql://postgres.xxx:password@host:6543/postgres` | Same Supabase database URL |
+| `POSTGRES_DB` | `aws-0-ap-southeast-2.pooler.supabase.com` | Database host for legacy config |
+| `POSTGRES_USER` | `postgres` | Database username |
+| `POSTGRES_PASSWORD` | `your-supabase-password` | Database password |
+| `DB_HOST` | `aws-0-ap-southeast-2.pooler.supabase.com` | Additional database host |
+| `DB_PASSWORD` | `your-supabase-password` | Additional database password |
+
+**Supabase Secrets:** (same as development)
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `SUPABASE_PROJECT_ID` | `jfcpfoehtcldmappkdsm` | Your Supabase project ID |
+| `SUPABASE_URL` | `https://jfcpfoehtcldmappkdsm.supabase.co` | Your Supabase URL |
+| `SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase service role key |
+| `SUPABASE_JWT_SECRET` | `olC5YZLARU6eszH9xFwIO02RvCjH...` | Your Supabase JWT secret |
+
+**Optional Secrets (can be empty for basic setup):**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `EMAIL_HOST` | `smtp.your-provider.com` | SMTP server (optional) |
+| `EMAIL_PORT` | `587` | SMTP port (optional) |
+| `EMAIL_HOST_USER` | `your-email@domain.com` | SMTP username (optional) |
+| `EMAIL_HOST_PASSWORD` | `your-smtp-password` | SMTP password (optional) |
+| `CORS_ALLOWED_ORIGINS` | `https://your-domain.com,https://www.your-domain.com` | CORS allowed origins |
+| `LOG_LEVEL` | `ERROR` | Logging level |
+| `MVP_ALLOW_ANONYMOUS` | `True` | Allow anonymous access |
 
 ### 3.4 Final Application Setup
 ```bash
