@@ -193,6 +193,336 @@ The critical schema changes have been completed to support multi-scanner environ
   - [x] API endpoint to list previous uploads (`GET /api/v1/upload/history`)
   - [ ] Delete/reprocess uploaded files functionality (future enhancement)
 
+### 🐳 Phase 1E: Digital Ocean Docker Deployment
+
+#### Container-Based Deployment to Sydney Region
+Setting up automated deployment pipeline from dev branch to DigitalOcean Sydney droplet using Docker containerisation.
+
+#### Docker Configuration - ✅ READY TO IMPLEMENT
+- [ ] **Create Dockerfile** for Django application
+  - [ ] Multi-stage build for production optimisation
+  - [ ] Python 3.11 base image with security patches
+  - [ ] Install system dependencies (PostgreSQL client, etc.)
+  - [ ] Copy application code and install Python dependencies
+  - [ ] Configure static file serving
+  - [ ] Set proper user permissions for security
+  - [ ] Health check endpoint configuration
+
+- [ ] **Create docker-compose.yml** for local testing
+  - [ ] Django application service
+  - [ ] PostgreSQL service for local development
+  - [ ] Redis service for background tasks (future)
+  - [ ] Environment variable configuration
+  - [ ] Volume mounts for development
+
+- [ ] **Production Docker Configuration**
+  - [ ] Production Dockerfile with optimisations
+  - [ ] Environment-specific settings (settings_production.py)
+  - [ ] Gunicorn WSGI configuration
+  - [ ] Static file serving via Nginx (optional enhancement)
+
+#### GitHub Actions Workflow - ✅ READY TO IMPLEMENT
+- [ ] **Create .github/workflows/deploy-staging.yml**
+  - [ ] Trigger on dev branch pushes
+  - [ ] Build and test Django application
+  - [ ] Build Docker image with proper tagging
+  - [ ] Deploy to DigitalOcean Sydney droplet
+  - [ ] Run health checks post-deployment
+  - [ ] Send deployment notifications
+
+- [ ] **GitHub Secrets Configuration**
+  - [ ] DIGITALOCEAN_ACCESS_TOKEN
+  - [ ] DOCKER_REGISTRY_TOKEN
+  - [ ] SUPABASE_DATABASE_URL (staging)
+  - [ ] SUPABASE_JWT_SECRET
+  - [ ] DJANGO_SECRET_KEY (staging)
+  - [ ] SLACK_WEBHOOK_URL (notifications)
+
+#### DigitalOcean Infrastructure Setup - 🚀 IMMEDIATE TASKS
+- [ ] **Create DigitalOcean Account & Droplet**
+  - [ ] Sign up for DigitalOcean account
+  - [ ] Create Basic Droplet (1GB RAM, $6/month) in Sydney region
+  - [ ] Configure SSH key access for secure deployment
+  - [ ] Install Docker and Docker Compose on droplet
+  - [ ] Configure firewall rules (ports 80, 443, 22 only)
+  - [ ] Set up automatic security updates
+
+- [ ] **Network & DNS Configuration**
+  - [ ] Create DNS A record: `riskradar.dev.securitymetricshub.com → [droplet_ip]`
+  - [ ] Configure reverse DNS (optional)
+  - [ ] Set up CloudFlare or similar CDN (future enhancement)
+
+#### SSL & Security Configuration - 🔒 HIGH PRIORITY
+- [ ] **TLS Certificate Setup**
+  - [ ] Install Certbot for Let's Encrypt certificates
+  - [ ] Configure automatic certificate renewal
+  - [ ] Set up HTTPS redirection
+  - [ ] Configure HSTS headers
+
+- [ ] **Security Hardening**
+  - [ ] Configure DigitalOcean Cloud Firewall
+  - [ ] Disable password SSH authentication (key-only)
+  - [ ] Set up fail2ban for brute force protection
+  - [ ] Configure automatic security updates
+  - [ ] Implement basic DDoS protection
+
+#### Database Connection - 🗃️ CRITICAL PATH
+- [ ] **Supabase Integration**
+  - [ ] Update Django settings for Supabase PostgreSQL
+  - [ ] Configure connection pooling for production
+  - [ ] Set up database migration strategy for staging
+  - [ ] Test connectivity from DigitalOcean Sydney to Supabase AU
+  - [ ] Configure Row Level Security (RLS) policies
+  - [ ] Set up database backup verification
+
+#### Monitoring & Maintenance - 📊 OPERATIONAL READINESS
+- [ ] **Application Monitoring**
+  - [ ] Configure Django logging for production
+  - [ ] Set up DigitalOcean Monitoring
+  - [ ] Configure uptime monitoring (UptimeRobot or similar)
+  - [ ] Set up error tracking (Sentry integration)
+  - [ ] Configure performance monitoring
+
+- [ ] **Deployment Monitoring**
+  - [ ] GitHub Actions deployment status notifications
+  - [ ] Slack integration for deployment updates
+  - [ ] Failed deployment rollback strategy
+  - [ ] Health check endpoints for automated testing
+
+#### Cost Management - 💰 BUDGET CONTROL
+- [ ] **Resource Optimisation**
+  - [ ] Monitor droplet resource usage
+  - [ ] Set up DigitalOcean billing alerts
+  - [ ] Document scaling procedures (1GB → 2GB upgrade path)
+  - [ ] Implement log rotation to manage disk usage
+  - [ ] Regular cleanup of Docker images and containers
+
+#### Deployment Architecture
+
+**Production Deployment Strategy**
+
+Risk Radar employs a comprehensive multi-environment deployment strategy designed for Australian-based operations, leveraging Digital Ocean's Sydney region for optimal latency and Supabase's managed database services.
+
+**Environment Structure**
+
+*Branch-Based Deployment Model:*
+- `main` branch → **Production Environment** (`demo.riskradar.securitymetricshub.com`)
+- `dev` branch → **Staging Environment** (`riskradar.dev.securitymetricshub.com`)
+- `feature/*` branches → **Development Environment** (local development)
+
+**Infrastructure Overview**
+
+*Staging Environment (dev branch):*
+- **Hosting**: DigitalOcean Basic Droplet (1GB RAM, 1 vCPU, 25GB SSD)
+- **Region**: Sydney, Australia (SGP1 for proximity to Supabase AU region)
+- **Cost**: $6 USD/month (scalable to 2GB RAM at $12/month if needed)
+- **Deployment**: Automated via GitHub Actions on dev branch commits
+- **Domain**: `riskradar.dev.securitymetricshub.com`
+- **Database**: Supabase PostgreSQL (shared with production)
+- **Containerisation**: Docker-based deployment for consistency
+
+*Production Environment (future - main branch):*
+- **Hosting**: DigitalOcean General Purpose Droplet (2GB+ RAM recommended)
+- **Region**: Sydney, Australia
+- **Domain**: `demo.riskradar.securitymetricshub.com`
+- **Database**: Supabase PostgreSQL (production instance)
+- **High Availability**: Load balancer + multiple droplets (future scaling)
+
+**Automated Deployment Pipeline**
+
+*GitHub Actions Workflow:*
+```yaml
+name: Deploy to DigitalOcean
+on:
+  push:
+    branches: [dev]  # Triggers on dev branch commits
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - Build Docker image
+      - Run automated tests
+      - Deploy to DigitalOcean Sydney droplet
+      - Health check verification
+      - Slack/email notification
+```
+
+*Deployment Process:*
+1. **Code Push**: Developer pushes to dev branch
+2. **Automated Testing**: GitHub Actions runs test suite
+3. **Docker Build**: Application containerised with all dependencies
+4. **Deployment**: Docker image deployed to Sydney droplet
+5. **Health Checks**: Automated verification of service availability
+6. **DNS Updates**: Manual DNS record management (initial setup)
+
+**Regional Considerations**
+
+*Australia-Focused Architecture:*
+- **Low Latency**: Sydney region for both compute (DigitalOcean) and database (Supabase)
+- **Data Sovereignty**: Australian data residency compliance
+- **Performance**: <50ms latency for Australian users
+- **Cost Optimisation**: AUD pricing considerations factored into infrastructure decisions
+
+**Security & Compliance**
+
+*Production Security Standards:*
+- **TLS 1.3**: End-to-end encryption for all traffic
+- **Environment Variables**: Secure secret management via GitHub Secrets
+- **Database Security**: Supabase Row Level Security (RLS) policies
+- **Network Security**: DigitalOcean Cloud Firewall configuration
+- **Backup Strategy**: Automated daily Supabase backups
+
+**Monitoring & Maintenance**
+
+*Operational Excellence:*
+- **Uptime Monitoring**: DigitalOcean monitoring + external uptime checks
+- **Log Aggregation**: Centralised Django logging
+- **Performance Metrics**: Django performance monitoring
+- **Automated Alerts**: Email/Slack notifications for critical issues
+- **Update Strategy**: Automated dependency updates via Dependabot
+
+#### 📋 DIGITAL OCEAN SETUP CHECKLIST - STEP-BY-STEP GUIDE
+
+**Phase 1: Account & Infrastructure Setup (Day 1)**
+
+*1. DigitalOcean Account Creation*
+```bash
+# 1. Sign up at digitalocean.com
+# 2. Add payment method (credit card)
+# 3. Generate Personal Access Token for API access
+# 4. Save token securely for GitHub Actions
+```
+
+*2. Create Sydney Droplet*
+```bash
+# Via DigitalOcean Control Panel:
+# - Choose: Basic Droplet
+# - RAM: 1GB ($6/month)
+# - Region: Sydney 1 (sgp1)
+# - Image: Ubuntu 22.04 LTS
+# - Authentication: SSH Key (upload your public key)
+# - Hostname: riskradar-dev-staging
+```
+
+*3. Initial Server Configuration*
+```bash
+# SSH into your droplet
+ssh root@[your_droplet_ip]
+
+# Update system packages
+apt update && apt upgrade -y
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+
+# Install Docker Compose
+apt install docker-compose-plugin -y
+
+# Create application user
+useradd -m -s /bin/bash riskradar
+usermod -aG docker riskradar
+
+# Configure firewall
+ufw allow ssh
+ufw allow http
+ufw allow https
+ufw --force enable
+```
+
+**Phase 2: DNS Configuration (Day 1)**
+
+*DNS Record Setup*
+```bash
+# Create A record in your DNS provider:
+# Type: A
+# Name: riskradar.dev
+# Value: [your_droplet_ip]
+# TTL: 300 seconds
+
+# Verify DNS propagation
+dig riskradar.dev.securitymetricshub.com
+nslookup riskradar.dev.securitymetricshub.com
+```
+
+**Phase 3: GitHub Actions Setup (Day 2)**
+
+*GitHub Repository Secrets*
+```bash
+# Add these secrets in GitHub Repository Settings > Secrets:
+DIGITALOCEAN_ACCESS_TOKEN: [your_do_token]
+DROPLET_IP: [your_droplet_ip]
+DROPLET_USER: riskradar
+SSH_PRIVATE_KEY: [your_private_key]
+SUPABASE_DATABASE_URL: [staging_db_url]
+DJANGO_SECRET_KEY: [generate_new_secret]
+```
+
+*Deploy Key Setup*
+```bash
+# On your droplet, create deployment key
+ssh-keygen -t ed25519 -f ~/.ssh/deploy_key
+# Add public key to GitHub repository Deploy Keys
+# Add private key to GitHub Secrets as SSH_PRIVATE_KEY
+```
+
+**Phase 4: SSL Certificate Setup (Day 2)**
+
+*Let's Encrypt Configuration*
+```bash
+# Install Certbot
+apt install certbot python3-certbot-nginx -y
+
+# Generate certificate (after DNS is propagated)
+certbot --nginx -d riskradar.dev.securitymetricshub.com
+
+# Verify auto-renewal
+certbot renew --dry-run
+```
+
+**⚡ QUICK START COMMANDS**
+
+*Deploy Application Manually (First Time)*
+```bash
+# On droplet
+git clone https://github.com/[your-username]/vuln-reporting-demo.git
+cd vuln-reporting-demo
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+*Verify Deployment*
+```bash
+# Check application status
+curl -f https://riskradar.dev.securitymetricshub.com/api/status/
+docker-compose logs riskradar-django
+```
+
+*Monitor Resources*
+```bash
+# Check system resources
+htop
+df -h
+docker stats
+```
+
+#### 🔮 FUTURE PRODUCTION DEPLOYMENT (main branch)
+
+**Production Environment Specifications**
+- **Droplet**: General Purpose (2GB RAM, $12/month minimum)
+- **Domain**: `demo.riskradar.securitymetricshub.com`
+- **High Availability**: Load balancer + 2 droplets
+- **Database**: Dedicated Supabase production instance
+- **CDN**: CloudFlare or DigitalOcean Spaces CDN
+- **Monitoring**: Comprehensive logging and alerting
+- **Backup**: Automated application and database backups
+
+**Scaling Strategy**
+- **Traffic Growth**: Scale horizontally with load balancer
+- **Database Performance**: Implement read replicas
+- **Global Reach**: Multi-region deployment (Singapore, US)
+- **Enterprise Features**: SSO integration, advanced RBAC
+
 ---
 
 ## 🗄️ BACKLOG: Database Schema Cleanup (Low Priority)
