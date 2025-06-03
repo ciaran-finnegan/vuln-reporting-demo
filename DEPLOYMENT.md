@@ -251,7 +251,7 @@ certbot renew --dry-run
 
 ## 3. GitHub Configuration
 
-### 3.1 Enable GitHub Packages
+### 3.1 Enable GitHub Actions
 1. Go to your repository settings
 2. Navigate to "Actions" → "General"
 3. Ensure "Read and write permissions" is selected
@@ -264,33 +264,59 @@ On your local machine:
 ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/github_deploy
 ```
 
-Add public key to Digital Ocean droplet:
+Add public key to Digital Ocean droplets:
 ```bash
-# On the droplet, as deploy user
+# On each droplet (dev and prod), as deploy user
 mkdir -p ~/.ssh
 echo "YOUR_PUBLIC_KEY_CONTENT" >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 chmod 700 ~/.ssh
 ```
 
-### 3.3 Configure GitHub Secrets
-Go to your repository → Settings → Secrets and Variables → Actions
+### 3.3 Create GitHub Environments
+Go to your repository → Settings → Environments
 
-Add these repository secrets:
+#### Create Development Environment:
+1. Click "New environment"
+2. Name: `dev`
+3. Add environment secrets:
 
-**Production Secrets:**
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
-| `PROD_HOST` | `YOUR_PRODUCTION_DROPLET_IP` | Production droplet IP address |
-| `PROD_USERNAME` | `deploy` | SSH username for production |
-| `PROD_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for production deployment |
+| `HOST` | `YOUR_DEV_DROPLET_IP` | Development droplet IP address |
+| `USERNAME` | `deploy` | SSH username for development |
+| `SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for development deployment |
+| `SECRET_KEY` | `your-generated-dev-secret-key` | Django secret key for development |
+| `DATABASE_URL` | `postgresql://riskradar_dev:password@db:5432/riskradar_dev` | Development database URL |
+| `POSTGRES_PASSWORD` | `your-dev-db-password` | Development database password |
+| `DJANGO_ALLOWED_HOSTS` | `riskradar.dev.securitymetricshub.com,localhost,127.0.0.1` | Allowed hosts for development |
 
-**Development Secrets:**
+#### Create Production Environment:
+1. Click "New environment"
+2. Name: `prod`
+3. **Enable deployment protection rules** (recommended):
+   - ✅ Required reviewers (add yourself)
+   - ✅ Wait timer: 0 minutes
+   - ✅ Deployment branches: Selected branches only → `main`
+4. Add environment secrets:
+
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
-| `DEV_HOST` | `YOUR_DEVELOPMENT_DROPLET_IP` | Development droplet IP address |
-| `DEV_USERNAME` | `deploy` | SSH username for development |
-| `DEV_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for development deployment |
+| `HOST` | `YOUR_PROD_DROPLET_IP` | Production droplet IP address |
+| `USERNAME` | `deploy` | SSH username for production |
+| `SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for production deployment |
+| `SECRET_KEY` | `your-generated-prod-secret-key` | Django secret key for production |
+| `DATABASE_URL` | `postgresql://riskradar:password@db:5432/riskradar` | Production database URL |
+| `POSTGRES_PASSWORD` | `your-prod-db-password` | Production database password |
+| `DJANGO_ALLOWED_HOSTS` | `your-domain.com,www.your-domain.com` | Allowed hosts for production |
+
+#### Optional Environment Variables (for both environments):
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `SUPABASE_PROJECT_ID` | `your-project-id` | Supabase project ID (if using) |
+| `SUPABASE_ANON_KEY` | `your-anon-key` | Supabase anonymous key (if using) |
+| `SUPABASE_URL` | `https://your-project.supabase.co` | Supabase URL (if using) |
+| `SUPABASE_JWT_SECRET` | `your-jwt-secret` | Supabase JWT secret (if using) |
 
 ### 3.4 Final Application Setup
 ```bash
@@ -441,11 +467,30 @@ Visit your domain:
 
 ## 6. Automated Deployment
 
-### 6.1 Test GitHub Actions
-1. Make a small change to your repository
-2. Commit and push to main branch
-3. Go to GitHub → Actions tab
-4. Verify the deployment workflow runs successfully
+### 6.1 Create Dev Branch and Test GitHub Actions
+First, create the dev branch for automated deployments:
+
+```bash
+# Create dev branch from your current feature branch
+git checkout -b dev
+git push origin dev
+```
+
+Then test the automated deployment:
+
+1. **Development Deployment:**
+   - Make a small change to your repository
+   - Commit and push to `dev` branch
+   - Go to GitHub → Actions tab
+   - Verify the development deployment workflow runs successfully
+   - Check `https://riskradar.dev.securitymetricshub.com/api/v1/status`
+
+2. **Production Deployment:**
+   - Create a pull request from `dev` to `main`
+   - Merge the pull request (or push directly to `main`)
+   - GitHub Actions will deploy to production environment
+   - **Note:** Production environment requires manual approval if you enabled deployment protection
+   - Check your production domain API endpoint
 
 ### 6.2 Monitor Deployment
 ```bash
