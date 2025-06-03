@@ -2,6 +2,8 @@
 
 This guide provides step-by-step instructions for deploying RiskRadar to Digital Ocean with automated CI/CD using GitHub Actions. This setup supports both production and development environments with automatic deployment.
 
+**✅ Status**: Tested and working in production at [riskradar.dev.securitymetricshub.com](https://riskradar.dev.securitymetricshub.com)
+
 ## Environments
 
 - **Production**: Deploys from `main` branch to your production domain
