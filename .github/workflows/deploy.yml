@@ -1,0 +1,183 @@
+name: Deploy to Digital Ocean
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        cd riskradar
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        SECRET_KEY: test-secret-key-for-github-actions
+        DEBUG: True
+      run: |
+        cd riskradar
+        python manage.py test
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      environment: ${{ steps.env.outputs.environment }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set environment
+      id: env
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "tag=latest" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          echo "environment=development" >> $GITHUB_OUTPUT
+          echo "tag=dev" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=${{ steps.env.outputs.tag }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Output image
+      id: image
+      run: echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.env.outputs.tag }}" >> $GITHUB_OUTPUT
+
+  deploy-production:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to Production
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.PROD_HOST }}
+        username: ${{ secrets.PROD_USERNAME }}
+        key: ${{ secrets.PROD_SSH_KEY }}
+        script: |
+          # Login to GitHub Container Registry
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Pull latest image
+          docker pull ${{ needs.build-and-push.outputs.image }}
+          
+          # Stop existing containers
+          cd /opt/riskradar
+          docker-compose down
+          
+          # Update docker-compose.yml to use new image
+          sed -i 's|build: .|image: ${{ needs.build-and-push.outputs.image }}|' docker-compose.yml
+          
+          # Start new containers
+          docker-compose up -d
+          
+          # Run migrations
+          docker-compose exec -T web python manage.py migrate
+          
+          # Collect static files
+          docker-compose exec -T web python manage.py collectstatic --noinput
+          
+          # Clean up old images
+          docker image prune -f
+
+  deploy-development:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    
+    steps:
+    - name: Deploy to Development
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.DEV_HOST }}
+        username: ${{ secrets.DEV_USERNAME }}
+        key: ${{ secrets.DEV_SSH_KEY }}
+        script: |
+          # Login to GitHub Container Registry
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Pull latest image
+          docker pull ${{ needs.build-and-push.outputs.image }}
+          
+          # Stop existing containers
+          cd /opt/riskradar-dev
+          docker-compose -f docker-compose.dev.yml down
+          
+          # Update docker-compose.dev.yml to use new image
+          sed -i 's|build: .|image: ${{ needs.build-and-push.outputs.image }}|' docker-compose.dev.yml
+          
+          # Start new containers
+          docker-compose -f docker-compose.dev.yml up -d
+          
+          # Run migrations
+          docker-compose -f docker-compose.dev.yml exec -T web python manage.py migrate
+          
+          # Collect static files
+          docker-compose -f docker-compose.dev.yml exec -T web python manage.py collectstatic --noinput
+          
+          # Clean up old images
+          docker image prune -f 

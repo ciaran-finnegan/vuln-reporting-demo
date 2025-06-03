@@ -151,7 +151,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -205,6 +206,13 @@ if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Settings for Django Admin
+CSRF_TRUSTED_ORIGINS = [
+    "https://riskradar.dev.securitymetricshub.com",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
 
 # File Upload Settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
