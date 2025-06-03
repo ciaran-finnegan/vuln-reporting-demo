@@ -2,9 +2,9 @@ name: Deploy to Digital Ocean
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
 
 env:
   REGISTRY: ghcr.io
@@ -52,7 +52,7 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     
     permissions:
       contents: read
@@ -60,10 +60,22 @@ jobs:
 
     outputs:
       image: ${{ steps.image.outputs.image }}
+      environment: ${{ steps.env.outputs.environment }}
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Set environment
+      id: env
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "tag=latest" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          echo "environment=development" >> $GITHUB_OUTPUT
+          echo "tag=dev" >> $GITHUB_OUTPUT
+        fi
 
     - name: Log in to Container Registry
       uses: docker/login-action@v3
@@ -80,7 +92,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=${{ steps.env.outputs.tag }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -92,20 +104,20 @@ jobs:
 
     - name: Output image
       id: image
-      run: echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_OUTPUT
+      run: echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.env.outputs.tag }}" >> $GITHUB_OUTPUT
 
-  deploy:
+  deploy-production:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     
     steps:
-    - name: Deploy to Digital Ocean
+    - name: Deploy to Production
       uses: appleboy/ssh-action@v1.0.0
       with:
-        host: ${{ secrets.DO_HOST }}
-        username: ${{ secrets.DO_USERNAME }}
-        key: ${{ secrets.DO_SSH_KEY }}
+        host: ${{ secrets.PROD_HOST }}
+        username: ${{ secrets.PROD_USERNAME }}
+        key: ${{ secrets.PROD_SSH_KEY }}
         script: |
           # Login to GitHub Container Registry
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -128,6 +140,44 @@ jobs:
           
           # Collect static files
           docker-compose exec -T web python manage.py collectstatic --noinput
+          
+          # Clean up old images
+          docker image prune -f
+
+  deploy-development:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    
+    steps:
+    - name: Deploy to Development
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.DEV_HOST }}
+        username: ${{ secrets.DEV_USERNAME }}
+        key: ${{ secrets.DEV_SSH_KEY }}
+        script: |
+          # Login to GitHub Container Registry
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Pull latest image
+          docker pull ${{ needs.build-and-push.outputs.image }}
+          
+          # Stop existing containers
+          cd /opt/riskradar-dev
+          docker-compose -f docker-compose.dev.yml down
+          
+          # Update docker-compose.dev.yml to use new image
+          sed -i 's|build: .|image: ${{ needs.build-and-push.outputs.image }}|' docker-compose.dev.yml
+          
+          # Start new containers
+          docker-compose -f docker-compose.dev.yml up -d
+          
+          # Run migrations
+          docker-compose -f docker-compose.dev.yml exec -T web python manage.py migrate
+          
+          # Collect static files
+          docker-compose -f docker-compose.dev.yml exec -T web python manage.py collectstatic --noinput
           
           # Clean up old images
           docker image prune -f 

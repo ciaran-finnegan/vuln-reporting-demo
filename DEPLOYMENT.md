@@ -1,11 +1,16 @@
 # RiskRadar Deployment Guide
 
-This guide provides step-by-step instructions for deploying RiskRadar to Digital Ocean with automated CI/CD using GitHub Actions.
+This guide provides step-by-step instructions for deploying RiskRadar to Digital Ocean with automated CI/CD using GitHub Actions. This setup supports both production and development environments with automatic deployment.
+
+## Environments
+
+- **Production**: Deploys from `main` branch to your production domain
+- **Development**: Deploys from `dev` branch to `riskradar.dev.securitymetricshub.com`
 
 ## Prerequisites
 
 1. Domain name with DNS control
-2. Digital Ocean account
+2. Digital Ocean account (with two droplets for production and development)
 3. GitHub repository with admin access
 4. Basic familiarity with command line tools
 
@@ -16,17 +21,18 @@ This guide provides step-by-step instructions for deploying RiskRadar to Digital
 2. Access your DNS management panel
 
 ### 1.2 Create DNS Records
-Add these DNS records pointing to your Digital Ocean droplet IP:
+Add these DNS records pointing to your Digital Ocean droplet IPs:
 
+**For Production (your-domain.com):**
 ```
 Type: A
 Name: @
-Value: YOUR_DROPLET_IP
+Value: YOUR_PRODUCTION_DROPLET_IP
 TTL: 300
 
 Type: A  
 Name: www
-Value: YOUR_DROPLET_IP
+Value: YOUR_PRODUCTION_DROPLET_IP
 TTL: 300
 
 Type: CNAME
@@ -35,9 +41,20 @@ Value: your-domain.com
 TTL: 300
 ```
 
+**For Development (riskradar.dev.securitymetricshub.com):**
+```
+Type: A
+Name: riskradar.dev
+Value: YOUR_DEVELOPMENT_DROPLET_IP
+TTL: 300
+```
+
 ## 2. Digital Ocean Setup
 
-### 2.1 Create Droplet
+### 2.1 Create Droplets
+Create two droplets for production and development environments:
+
+**Production Droplet:**
 1. Log into Digital Ocean dashboard
 2. Click "Create" → "Droplets"
 3. Choose configuration:
@@ -46,6 +63,14 @@ TTL: 300
    - **Datacenter**: Choose closest to your users
    - **Authentication**: SSH keys (recommended) or password
    - **Hostname**: riskradar-prod
+
+**Development Droplet:**
+1. Repeat the process with these settings:
+   - **Image**: Ubuntu 22.04 LTS
+   - **Size**: Basic plan, $12/month (2GB RAM, 1 CPU) - smaller for dev
+   - **Datacenter**: Same as production
+   - **Authentication**: Same SSH keys
+   - **Hostname**: riskradar-dev
 
 ### 2.2 Initial Server Setup
 SSH into your droplet:
@@ -170,11 +195,19 @@ Go to your repository → Settings → Secrets and Variables → Actions
 
 Add these repository secrets:
 
+**Production Secrets:**
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
-| `DO_HOST` | `YOUR_DROPLET_IP` | Digital Ocean droplet IP address |
-| `DO_USERNAME` | `deploy` | SSH username for deployment |
-| `DO_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Content of ~/.ssh/github_deploy (private key) |
+| `PROD_HOST` | `YOUR_PRODUCTION_DROPLET_IP` | Production droplet IP address |
+| `PROD_USERNAME` | `deploy` | SSH username for production |
+| `PROD_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for production deployment |
+
+**Development Secrets:**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `DEV_HOST` | `YOUR_DEVELOPMENT_DROPLET_IP` | Development droplet IP address |
+| `DEV_USERNAME` | `deploy` | SSH username for development |
+| `DEV_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for development deployment |
 
 ### 3.4 Copy Application Files to Server
 ```bash
