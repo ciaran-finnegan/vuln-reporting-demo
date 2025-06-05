@@ -10,6 +10,10 @@ from django.db.models import Q, Count
 from django.db.models.functions import TruncHour, TruncDay
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import BasePermission
+from rest_framework.response import Response
+from rest_framework import status
 import subprocess
 import docker
 
@@ -17,14 +21,19 @@ from .models import SystemLog
 
 logger = logging.getLogger(__name__)
 
+class IsAdminUser(BasePermission):
+    """
+    Custom permission to only allow admin users to access log endpoints.
+    """
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
+
 def is_admin(user):
     """Check if user is admin"""
     return user.is_authenticated and user.is_staff
 
-@csrf_exempt
-@require_http_methods(["GET"])
-@login_required
-@user_passes_test(is_admin)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
 def get_logs(request):
     """Get filtered logs with pagination"""
     try:
@@ -103,16 +112,14 @@ def get_logs(request):
             'next_offset': offset + limit if offset + limit < total_count else None
         }
         
-        return JsonResponse(response_data)
+        return Response(response_data)
         
     except Exception as e:
         logger.error(f"Error retrieving logs: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@csrf_exempt
-@require_http_methods(["GET"])
-@login_required
-@user_passes_test(is_admin)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
 def get_log_analytics_error_rate(request):
     """Get error rate trending data"""
     try:
@@ -169,19 +176,17 @@ def get_log_analytics_error_rate(request):
                 'error_rate': round(error_rate, 2)
             })
         
-        return JsonResponse({
+        return Response({
             'data': data_points,
             'time_range': time_range
         })
         
     except Exception as e:
         logger.error(f"Error getting error rate data: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@csrf_exempt
-@require_http_methods(["GET"])
-@login_required
-@user_passes_test(is_admin)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
 def get_log_analytics_by_source(request):
     """Get log counts by source"""
     try:
@@ -205,19 +210,17 @@ def get_log_analytics_by_source(request):
             count=Count('id')
         ).order_by('-count')
         
-        return JsonResponse({
+        return Response({
             'data': list(source_data),
             'time_range': time_range
         })
         
     except Exception as e:
         logger.error(f"Error getting source data: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@csrf_exempt
-@require_http_methods(["GET"])
-@login_required
-@user_passes_test(is_admin)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
 def get_log_analytics_top_errors(request):
     """Get most frequent error messages"""
     try:
@@ -243,7 +246,7 @@ def get_log_analytics_top_errors(request):
             count=Count('id')
         ).order_by('-count')[:limit]
         
-        return JsonResponse({
+        return Response({
             'data': list(top_errors),
             'time_range': time_range,
             'limit': limit
@@ -251,12 +254,10 @@ def get_log_analytics_top_errors(request):
         
     except Exception as e:
         logger.error(f"Error getting top errors: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@csrf_exempt
-@require_http_methods(["GET"])
-@login_required
-@user_passes_test(is_admin)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
 def get_docker_logs(request, container_name):
     """Get Docker container logs"""
     try:
@@ -282,25 +283,23 @@ def get_docker_logs(request, container_name):
                             'message': message
                         })
             
-            return JsonResponse({
+            return Response({
                 'container': container_name,
                 'logs': log_lines[-lines:],  # Return last N lines
                 'total_lines': len(log_lines)
             })
             
         except docker.errors.NotFound:
-            return JsonResponse({'error': f'Container {container_name} not found'}, status=404)
+            return Response({'error': f'Container {container_name} not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as docker_error:
-            return JsonResponse({'error': f'Docker error: {str(docker_error)}'}, status=500)
+            return Response({'error': f'Docker error: {str(docker_error)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     except Exception as e:
         logger.error(f"Error getting Docker logs: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@csrf_exempt
-@require_http_methods(["GET"])
-@login_required
-@user_passes_test(is_admin)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
 def get_system_health(request):
     """Get system health metrics"""
     try:
@@ -334,8 +333,8 @@ def get_system_health(request):
             'timestamp': now.isoformat()
         }
         
-        return JsonResponse(health_data)
+        return Response(health_data)
         
     except Exception as e:
         logger.error(f"Error getting system health: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500) 
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 

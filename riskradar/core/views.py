@@ -317,3 +317,68 @@ def upload_history(request):
             {'error': 'An error occurred while retrieving upload history.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+def auth_status(request):
+    """
+    Check if the current request is authenticated.
+    """
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        return Response({
+            'authenticated': True,
+            'user': {
+                'email': request.user.email,
+                'is_admin': request.user.is_staff
+            }
+        })
+    else:
+        return Response({
+            'authenticated': False,
+            'user': None
+        })
+
+@api_view(['GET'])
+def auth_profile(request):
+    """
+    Get detailed user profile and permissions.
+    Requires authentication.
+    """
+    if not hasattr(request, 'user') or not request.user.is_authenticated:
+        return Response(
+            {'error': 'Authentication required'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    user = request.user
+    
+    # Get user profile if exists
+    try:
+        from .models import UserProfile
+        profile = UserProfile.objects.get(user=user)
+        profile_data = {
+            'business_group': profile.business_group.name if profile.business_group else None,
+            'supabase_user_id': profile.supabase_user_id
+        }
+    except UserProfile.DoesNotExist:
+        profile_data = {
+            'business_group': None,
+            'supabase_user_id': None
+        }
+    
+    return Response({
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'date_joined': user.date_joined.isoformat()
+        },
+        'profile': profile_data,
+        'permissions': {
+            'is_admin': user.is_staff,
+            'can_upload': True,
+            'can_view_logs': user.is_staff
+        }
+    })
