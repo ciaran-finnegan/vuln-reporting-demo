@@ -219,8 +219,19 @@ curl -H "Authorization: Bearer your-token" \
 
 **Solution:**
 - Check user permissions with `/api/v1/auth/profile`
-- Contact admin to upgrade user role
+- Contact admin to upgrade user role in Supabase dashboard
 - Use different user with appropriate permissions
+- Log management endpoints require `is_staff=True` in Django
+
+#### 5. JWT Authentication Not Working (Fixed in v2.1)
+**Previous Issue:**
+Log management endpoints were redirecting to `/accounts/login/` instead of accepting JWT tokens.
+
+**Resolution:**
+All API endpoints now consistently use JWT authentication. If you experience this issue:
+- Ensure you're using the latest API version
+- Check that your JWT token includes the required claims (`aud`, `exp`, `sub`, `email`)
+- Verify the token is sent in the `Authorization: Bearer {token}` header format
 
 ### Testing Authentication
 

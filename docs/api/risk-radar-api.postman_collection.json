@@ -189,6 +189,208 @@
 			"description": "File upload and management endpoints"
 		},
 		{
+			"name": "System Monitoring (Admin Only)",
+			"item": [
+				{
+					"name": "Get System Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_jwt_token}}",
+								"type": "text",
+								"description": "Admin JWT token required"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/?level=ERROR&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", ""],
+							"query": [
+								{
+									"key": "level",
+									"value": "ERROR",
+									"description": "Filter by log level: DEBUG, INFO, WARNING, ERROR, CRITICAL, ALL"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of logs to return (default: 50)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"disabled": true,
+									"description": "Number of logs to skip (default: 0)"
+								},
+								{
+									"key": "source",
+									"value": "django",
+									"disabled": true,
+									"description": "Filter by source: django, docker, system, nginx, ALL"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"disabled": true,
+									"description": "Search in log messages"
+								},
+								{
+									"key": "start_time",
+									"value": "",
+									"disabled": true,
+									"description": "Start time filter (ISO format)"
+								},
+								{
+									"key": "end_time",
+									"value": "",
+									"disabled": true,
+									"description": "End time filter (ISO format)"
+								}
+							]
+						},
+						"description": "Get filtered system logs with pagination (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Log Analytics - Error Rate",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/analytics/error-rate/?timeRange=24h",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "analytics", "error-rate", ""],
+							"query": [
+								{
+									"key": "timeRange",
+									"value": "24h",
+									"description": "Time range: 1h, 24h, 7d"
+								}
+							]
+						},
+						"description": "Get error rate trending data"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Log Analytics - By Source",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/analytics/by-source/?timeRange=24h",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "analytics", "by-source", ""],
+							"query": [
+								{
+									"key": "timeRange",
+									"value": "24h",
+									"description": "Time range: 1h, 24h, 7d"
+								}
+							]
+						},
+						"description": "Get log volume by source"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Log Analytics - Top Errors",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/analytics/top-errors/?limit=10&timeRange=24h",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "analytics", "top-errors", ""],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of errors to return"
+								},
+								{
+									"key": "timeRange",
+									"value": "24h",
+									"description": "Time range: 1h, 24h, 7d"
+								}
+							]
+						},
+						"description": "Get most frequent error messages"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Docker Container Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/docker/riskradar-web/?lines=100",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "docker", "riskradar-web", ""],
+							"query": [
+								{
+									"key": "lines",
+									"value": "100",
+									"description": "Number of log lines to return"
+								}
+							]
+						},
+						"description": "Get Docker container logs"
+					},
+					"response": []
+				},
+				{
+					"name": "Get System Health",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/health/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "health", ""]
+						},
+						"description": "Get system health metrics and status"
+					},
+					"response": []
+				}
+			],
+			"description": "System monitoring and log management endpoints (admin access required)"
+		},
+		{
 			"name": "System Status",
 			"item": [
 				{
@@ -207,203 +409,6 @@
 				}
 			],
 			"description": "System health and status endpoints"
-		},
-		{
-			"name": "Log Management (Admin Only)",
-			"item": [
-				{
-					"name": "Get System Logs",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/logs/?level=ERROR&source=django&limit=50&offset=0",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "logs", ""],
-							"query": [
-								{
-									"key": "level",
-									"value": "ERROR",
-									"description": "Filter by level: DEBUG, INFO, WARNING, ERROR, CRITICAL, ALL"
-								},
-								{
-									"key": "source",
-									"value": "django",
-									"description": "Filter by source: django, docker, system, nginx, ALL"
-								},
-								{
-									"key": "limit",
-									"value": "50",
-									"description": "Number of logs to return"
-								},
-								{
-									"key": "offset",
-									"value": "0",
-									"description": "Skip this many logs"
-								},
-								{
-									"key": "search",
-									"value": "error",
-									"disabled": true,
-									"description": "Search in log messages"
-								},
-								{
-									"key": "start_time",
-									"value": "2025-01-01T00:00:00Z",
-									"disabled": true,
-									"description": "Start time filter (ISO format)"
-								},
-								{
-									"key": "end_time",
-									"value": "2025-01-02T00:00:00Z",
-									"disabled": true,
-									"description": "End time filter (ISO format)"
-								}
-							]
-						},
-						"description": "Get filtered system logs (admin only)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Error Rate Analytics",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/logs/analytics/error-rate/?timeRange=24h",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "logs", "analytics", "error-rate", ""],
-							"query": [
-								{
-									"key": "timeRange",
-									"value": "24h",
-									"description": "Time range: 1h, 24h, 7d"
-								}
-							]
-						},
-						"description": "Get error rate trending data (admin only)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Logs by Source",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/logs/analytics/by-source/?timeRange=24h",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "logs", "analytics", "by-source", ""],
-							"query": [
-								{
-									"key": "timeRange",
-									"value": "24h"
-								}
-							]
-						},
-						"description": "Get log distribution by source (admin only)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Top Errors",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/logs/analytics/top-errors/?limit=10&timeRange=24h",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "logs", "analytics", "top-errors", ""],
-							"query": [
-								{
-									"key": "limit",
-									"value": "10",
-									"description": "Number of top errors to return"
-								},
-								{
-									"key": "timeRange",
-									"value": "24h"
-								}
-							]
-						},
-						"description": "Get most frequent error messages (admin only)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Docker Container Logs",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/logs/docker/riskradar-web/?lines=100",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "logs", "docker", "riskradar-web", ""],
-							"query": [
-								{
-									"key": "lines",
-									"value": "100",
-									"description": "Number of log lines to return"
-								}
-							]
-						},
-						"description": "Get Docker container logs (admin only)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get System Health",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/v1/logs/health/",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "logs", "health", ""]
-						},
-						"description": "Get system health metrics (admin only)"
-					},
-					"response": []
-				}
-			],
-			"description": "Log management and analytics endpoints (requires admin privileges)"
 		}
 	],
 	"event": [
@@ -455,6 +460,12 @@
 			"value": "your-supabase-jwt-token-here",
 			"type": "string",
 			"description": "Supabase JWT token for authentication (get from browser dev tools after login)"
+		},
+		{
+			"key": "admin_jwt_token",
+			"value": "your-admin-supabase-jwt-token-here",
+			"type": "string",
+			"description": "Supabase JWT token for admin user (required for log management endpoints)"
 		}
 	]
 } 

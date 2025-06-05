@@ -52,6 +52,10 @@ All responses are JSON with consistent error handling:
 | `/api/v1/auth/status` | GET | No | Check authentication status |
 | `/api/v1/auth/profile` | GET | Yes | Get user profile |
 | `/api/v1/logs/` | GET | Admin | System logs |
+| `/api/v1/logs/analytics/error-rate/` | GET | Admin | Error rate trending |
+| `/api/v1/logs/analytics/by-source/` | GET | Admin | Log volume by source |
+| `/api/v1/logs/analytics/top-errors/` | GET | Admin | Most frequent errors |
+| `/api/v1/logs/docker/{container}/` | GET | Admin | Container logs |
 | `/api/v1/logs/health/` | GET | Admin | System health |
 
 ## File Upload & Management
