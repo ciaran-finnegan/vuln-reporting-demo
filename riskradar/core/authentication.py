@@ -146,21 +146,48 @@ class SupabaseJWTAuthentication(BaseAuthentication):
         try:
             user = User.objects.get(email=email)
             logger.debug(f"Found existing user: {user.username}")
+            
+            # Extract user metadata for potential updates
+            user_metadata = user_data.get('user_metadata', {})
+            updated_fields = []
+            
             # Update user data if needed
             if not user.username or user.username != email:
                 user.username = email
+                updated_fields.append('username')
+            
+            # Update admin flags from JWT token if they've changed
+            new_is_staff = user_metadata.get('is_staff', False)
+            new_is_superuser = user_metadata.get('is_superuser', False)
+            
+            if user.is_staff != new_is_staff:
+                user.is_staff = new_is_staff
+                updated_fields.append(f'is_staff={new_is_staff}')
+                
+            if user.is_superuser != new_is_superuser:
+                user.is_superuser = new_is_superuser
+                updated_fields.append(f'is_superuser={new_is_superuser}')
+            
+            # Save if any changes were made
+            if updated_fields:
                 user.save()
-                logger.debug(f"Updated username for user: {email}")
+                logger.debug(f"Updated user {email}: {', '.join(updated_fields)}")
         except User.DoesNotExist:
             logger.info(f"Creating new user for email: {email}")
+            
+            # Extract user metadata
+            user_metadata = user_data.get('user_metadata', {})
+            
             # Create new user
             user = User.objects.create_user(
                 username=email,
                 email=email,
-                first_name=user_data.get('user_metadata', {}).get('first_name', ''),
-                last_name=user_data.get('user_metadata', {}).get('last_name', ''),
+                first_name=user_metadata.get('first_name', ''),
+                last_name=user_metadata.get('last_name', ''),
+                is_staff=user_metadata.get('is_staff', False),
+                is_superuser=user_metadata.get('is_superuser', False),
             )
-            logger.info(f"Created new user: {user.username}")
+            logger.info(f"Created new user: {user.username} (is_staff: {user.is_staff}, is_superuser: {user.is_superuser})")
             
             # Create user profile
             try:
