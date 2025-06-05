@@ -70,10 +70,10 @@ jobs:
       id: env
       run: |
         if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "environment=prod" >> $GITHUB_OUTPUT
           echo "tag=latest" >> $GITHUB_OUTPUT
         elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
-          echo "environment=development" >> $GITHUB_OUTPUT
+          echo "environment=dev" >> $GITHUB_OUTPUT
           echo "tag=dev" >> $GITHUB_OUTPUT
         fi
 
@@ -110,23 +110,85 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    environment: "prod"
     
     steps:
     - name: Deploy to Production
       uses: appleboy/ssh-action@v1.0.0
       with:
-        host: ${{ secrets.PROD_HOST }}
-        username: ${{ secrets.PROD_USERNAME }}
-        key: ${{ secrets.PROD_SSH_KEY }}
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
         script: |
           # Login to GitHub Container Registry
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Navigate to application directory
+          cd /opt/riskradar
+          
+          # Pull latest code
+          git pull origin main
+          
+          # Create and configure temp_uploads directory for file uploads
+          echo "🗂️  Setting up temp_uploads directory..."
+          mkdir -p ./temp_uploads
+          chmod 777 ./temp_uploads
+          echo "✅ temp_uploads directory created with proper permissions"
+          
+          # Update environment file
+          echo "DEBUG=False" > .env
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+          echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> .env
+          echo "" >> .env
+          echo "# Database Configuration" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "" >> .env
+          echo "# PostgreSQL Environment Variables" >> .env
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+          echo "" >> .env
+          echo "# Email Configuration (Optional - for notifications)" >> .env
+          echo "EMAIL_HOST=${{ secrets.EMAIL_HOST }}" >> .env
+          echo "EMAIL_PORT=${{ secrets.EMAIL_PORT }}" >> .env
+          echo "EMAIL_HOST_USER=${{ secrets.EMAIL_HOST_USER }}" >> .env
+          echo "EMAIL_HOST_PASSWORD=${{ secrets.EMAIL_HOST_PASSWORD }}" >> .env
+          echo "EMAIL_USE_TLS=True" >> .env
+          echo "" >> .env
+          echo "# Security Settings (Production)" >> .env
+          echo "SECURE_SSL_REDIRECT=True" >> .env
+          echo "SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https" >> .env
+          echo "SECURE_HSTS_SECONDS=31536000" >> .env
+          echo "SECURE_HSTS_INCLUDE_SUBDOMAINS=True" >> .env
+          echo "SECURE_HSTS_PRELOAD=True" >> .env
+          echo "" >> .env
+          echo "# CORS Settings" >> .env
+          echo "CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}" >> .env
+          echo "CORS_ALLOW_ALL_ORIGINS=False" >> .env
+          echo "" >> .env
+          echo "# File Upload Settings" >> .env
+          echo "FILE_UPLOAD_MAX_MEMORY_SIZE=104857600" >> .env
+          echo "DATA_UPLOAD_MAX_MEMORY_SIZE=104857600" >> .env
+          echo "" >> .env
+          echo "# Supabase Configuration" >> .env
+          echo "SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
+          echo "SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}" >> .env
+          echo "" >> .env
+          echo "# Additional Database Configuration" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "" >> .env
+          echo "# Application Settings" >> .env
+          echo "LOG_LEVEL=${{ secrets.LOG_LEVEL }}" >> .env
+          echo "MVP_ALLOW_ANONYMOUS=${{ secrets.MVP_ALLOW_ANONYMOUS }}" >> .env
           
           # Pull latest image
           docker pull ${{ needs.build-and-push.outputs.image }}
           
           # Stop existing containers
-          cd /opt/riskradar
           docker-compose down
           
           # Update docker-compose.yml to use new image
@@ -139,7 +201,8 @@ jobs:
           docker-compose exec -T web python manage.py migrate
           
           # Collect static files
-          docker-compose exec -T web python manage.py collectstatic --noinput
+          docker-compose exec -T --user root web python manage.py collectstatic --noinput
+          docker-compose exec -T --user root web chown -R django:django /app/staticfiles
           
           # Clean up old images
           docker image prune -f
@@ -148,23 +211,86 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev'
+    environment: "dev"
     
     steps:
     - name: Deploy to Development
       uses: appleboy/ssh-action@v1.0.0
       with:
-        host: ${{ secrets.DEV_HOST }}
-        username: ${{ secrets.DEV_USERNAME }}
-        key: ${{ secrets.DEV_SSH_KEY }}
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
         script: |
           # Login to GitHub Container Registry
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Navigate to application directory
+          cd /opt/riskradar
+          
+          # Pull latest code
+          git pull origin dev
+          
+          # Create and configure temp_uploads directory for file uploads
+          echo "🗂️  Setting up temp_uploads directory..."
+          mkdir -p ./temp_uploads
+          chmod 777 ./temp_uploads
+          echo "✅ temp_uploads directory created with proper permissions"
+          
+          # Update environment file
+          echo "DEBUG=True" > .env
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+          echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> .env
+          echo "" >> .env
+          echo "# Database Configuration" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "" >> .env
+          echo "# PostgreSQL Environment Variables" >> .env
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+          echo "" >> .env
+          echo "# Email Configuration (Optional - for notifications)" >> .env
+          echo "EMAIL_HOST=${{ secrets.EMAIL_HOST }}" >> .env
+          echo "EMAIL_PORT=${{ secrets.EMAIL_PORT }}" >> .env
+          echo "EMAIL_HOST_USER=${{ secrets.EMAIL_HOST_USER }}" >> .env
+          echo "EMAIL_HOST_PASSWORD=${{ secrets.EMAIL_HOST_PASSWORD }}" >> .env
+          echo "EMAIL_USE_TLS=True" >> .env
+          echo "" >> .env
+          echo "# Security Settings (Development)" >> .env
+          echo "SECURE_SSL_REDIRECT=False" >> .env
+          echo "SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https" >> .env
+          echo "SECURE_HSTS_SECONDS=0" >> .env
+          echo "SECURE_HSTS_INCLUDE_SUBDOMAINS=False" >> .env
+          echo "SECURE_HSTS_PRELOAD=False" >> .env
+          echo "" >> .env
+          echo "# CORS Settings (More permissive for development)" >> .env
+          echo "CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}" >> .env
+          echo "CORS_ALLOW_ALL_ORIGINS=True" >> .env
+          echo "" >> .env
+          echo "# File Upload Settings" >> .env
+          echo "FILE_UPLOAD_MAX_MEMORY_SIZE=104857600" >> .env
+          echo "DATA_UPLOAD_MAX_MEMORY_SIZE=104857600" >> .env
+          echo "" >> .env
+          echo "# Supabase Configuration" >> .env
+          echo "SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
+          echo "SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}" >> .env
+          echo "" >> .env
+          echo "# Additional Database Configuration" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "" >> .env
+          echo "# Development-specific settings" >> .env
+          echo "INTERNAL_IPS=127.0.0.1,localhost" >> .env
+          echo "LOG_LEVEL=${{ secrets.LOG_LEVEL }}" >> .env
+          echo "MVP_ALLOW_ANONYMOUS=${{ secrets.MVP_ALLOW_ANONYMOUS }}" >> .env
           
           # Pull latest image
           docker pull ${{ needs.build-and-push.outputs.image }}
           
           # Stop existing containers
-          cd /opt/riskradar-dev
           docker-compose -f docker-compose.dev.yml down
           
           # Update docker-compose.dev.yml to use new image
@@ -177,7 +303,8 @@ jobs:
           docker-compose -f docker-compose.dev.yml exec -T web python manage.py migrate
           
           # Collect static files
-          docker-compose -f docker-compose.dev.yml exec -T web python manage.py collectstatic --noinput
+          docker-compose -f docker-compose.dev.yml exec -T --user root web python manage.py collectstatic --noinput
+          docker-compose -f docker-compose.dev.yml exec -T --user root web chown -R django:django /app/staticfiles
           
           # Clean up old images
           docker image prune -f 

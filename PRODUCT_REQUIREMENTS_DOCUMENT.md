@@ -15,11 +15,11 @@
 
 ## Executive Summary
 
-Risk Radar is a comprehensive vulnerability management platform that consolidates security data from multiple sources, prioritises risks based on business context, and tracks remediation efforts. The platform uses a flexible, configuration-driven architecture that enables integration with any vulnerability scanner without code changes.
+Risk Radar is a vulnerability management platform that consolidates security data from multiple sources, prioritises risks based on business context, and tracks remediation efforts. The platform uses a flexible, configuration-driven architecture that enables integration with any vulnerability scanner without code changes.
 
 ### Core Value Propositions
 - **Multi-Scanner Support**: Integrate any vulnerability scanner through configuration, not code
-- **Intelligent Deduplication**: Sophisticated asset and vulnerability correlation across sources
+- **Deduplication**: Asset and vulnerability correlation across sources
 - **Business Context**: Risk scoring based on asset criticality and organisational structure
 - **Remediation Tracking**: Campaign management with SLA enforcement and performance metrics
 - **Extensibility**: Schema designed for evolution without migrations
@@ -28,13 +28,14 @@ Risk Radar is a comprehensive vulnerability management platform that consolidate
 
 ## Features Overview
 
-Risk Radar provides a comprehensive vulnerability management platform with features designed to streamline security operations from discovery through remediation. Built on industry best practices and proven vulnerability management principles, the platform delivers the following capabilities:
+Risk Radar provides a vulnerability management platform with features designed to streamline security operations from discovery through remediation. Built on industry best practices and proven vulnerability management principles, the platform delivers the following capabilities:
 
 ### 🔍 Discovery & Ingestion
 - **Multi-Scanner Support**: Integrate any vulnerability scanner through configuration-driven field mappings
 - **Automated Asset Discovery**: Continuous asset inventory updates from multiple sources
-- **Smart Deduplication**: Sophisticated correlation logic prevents duplicate assets and vulnerabilities
-- **File Upload Interface**: Direct upload of scanner reports (Nessus, Qualys, etc.)
+- **Deduplication**: Correlation logic prevents duplicate assets and vulnerabilities
+- **Production File Upload System**: ✅ **FULLY IMPLEMENTED** - Direct upload of Nessus scanner reports with duplicate detection
+- **Nessus Parser**: ✅ **FULLY IMPLEMENTED** - XML processing with dynamic field mapping and asset categorisation
 - **Real-time Sync**: Automated connector scheduling with activity logging
 
 ### 📊 Risk Management
@@ -165,6 +166,132 @@ The MVP will be considered successful when it can:
 
 ---
 
+## File Upload & Parsing System (Production Ready)
+
+Risk Radar includes a file upload and parsing system that is **fully implemented and production-ready**. This system provides vulnerability data ingestion with duplicate detection and processing capabilities.
+
+### File Upload API System
+
+**File Upload Handling**
+- **RESTful API Endpoint**: `POST /api/v1/upload/nessus` accepts multipart file uploads
+- **File Validation**: Validation of file type (.nessus), size limits (100MB), and format integrity
+- **Authentication Support**: Optional JWT token authentication with user tracking
+- **Progress Tracking**: Upload progress and processing status
+- **Error Handling**: Error responses with diagnostic information
+
+**Duplicate Detection**
+- **SHA-256 File Hashing**: Every uploaded file is fingerprinted using cryptographic hashing
+- **Deduplication**: Prevents re-processing of identical scan files
+- **Force Re-import Option**: `?force_reimport=true` parameter bypasses duplicate detection when needed
+- **Upload History Tracking**: Audit trail of all uploads with timestamps and user attribution
+- **Conflict Resolution**: Messaging when duplicates are detected with resolution options
+
+**Upload Response Data**
+The upload API provides feedback including:
+- File processing statistics (assets created/updated, vulnerabilities processed, findings generated)
+- Upload metadata (file hash, size, processing time)
+- Parser performance metrics (creation vs update counts)
+- Error reporting with line-by-line diagnostics
+- User attribution and authentication status
+
+### Nessus Parser Engine
+
+**XML Processing**
+- **Standards-Compliant Parser**: Support for Nessus .nessus XML format specification
+- **Field Extraction**: Database-driven field mapping system - no code changes needed for new fields
+- **Nested Data Handling**: Extraction of nested XML elements and attributes
+- **Large File Support**: Processing of multi-gigabyte scan files
+- **Memory Management**: Streaming XML processing prevents memory exhaustion
+
+**Asset Processing**
+- **Multi-Identifier Recognition**: Extracts hostnames, IP addresses, MAC addresses, FQDN, NetBIOS names
+- **Operating System Detection**: Normalises OS information from scanner output
+- **Asset Categorisation**: Classification using 86-subtype system
+- **Deduplication**: Priority-based asset matching (cloud ID → agent UUID → MAC → hostname → IP)
+- **Metadata Preservation**: Storage of scan timing, scanner version, and custom attributes
+
+**Vulnerability Data Extraction**
+- **CVE Correlation**: Extraction and correlation of CVE identifiers
+- **Multi-Reference Support**: Captures BID, OSVDB, vendor advisories, and custom references
+- **CVSS Processing**: CVSS v2 and v3 score extraction with vector notation
+- **Exploit Intelligence**: Detection of exploit availability, framework compatibility
+- **Severity Normalisation**: Database-driven mapping of scanner-specific severity scales to internal standards
+- **Temporal Tracking**: Publication dates, modification dates, and patch availability timelines
+
+**Finding Generation & Correlation**
+- **Finding Identification**: Deduplication using asset + vulnerability + port + protocol + service
+- **Network Context**: Capture of port numbers, protocols, and service names
+- **Evidence Preservation**: Plugin output, detection methods, and scanner-specific metadata
+- **Risk Calculation**: Risk scoring based on severity, asset criticality, and threat intelligence
+- **Temporal Tracking**: First seen, last seen, and remediation timestamps for MTTR calculations
+
+### Database-Driven Configuration
+
+**Field Mapping System**
+- **No-Code Integration**: Add support for new scanners without code changes
+- **Transformation Rules**: Data transformation capabilities (lowercase, split, regex, custom functions)
+- **Extensible Design**: JSONB storage for scanner-specific data that doesn't fit standard schema
+- **Validation & Defaults**: Field-level validation with fallback default values
+- **Priority Ordering**: Processing order for dependent field mappings
+
+**Severity Mapping Engine**
+- **Scanner-Agnostic**: Each scanner integration has its own severity mapping configuration
+- **Flexible Scales**: Support for numeric (0-5), descriptive (Critical/High/Medium/Low), or custom scales
+- **Internal Normalisation**: All severities mapped to consistent 0-10 internal scale
+- **Label Generation**: Generation of human-readable severity labels
+- **Compliance Ready**: Mapping supports regulatory frameworks (PCI, SOX, etc.)
+
+### Production Deployment Features
+
+**Upload Management**
+- **Concurrent Processing**: Multiple files can be uploaded and processed simultaneously
+- **Queue Management**: Background processing with status tracking
+- **Retry Logic**: Retry of failed uploads with exponential backoff
+- **File Cleanup**: Cleanup of temporary files with configurable retention
+- **Audit Logging**: Logging of all upload activities for compliance
+- **Automated Infrastructure**: GitHub Actions automatically configures upload directory permissions during deployment
+
+**Performance Optimisation**
+- **Bulk Operations**: Database operations using Django bulk_create/bulk_update
+- **Transaction Management**: Atomic processing ensures data consistency
+- **Connection Pooling**: Database connections for high-throughput processing
+- **Memory Efficiency**: Streaming processing prevents memory issues with large files
+- **Index Optimisation**: Database indexes optimised for common query patterns
+
+**Infrastructure Automation**
+- **Deployment Integration**: Upload directory creation and permission setup automated via GitHub Actions
+- **Permission Management**: Proper file system permissions configured automatically during deployment
+- **Environment Configuration**: Automated environment variable and directory setup
+- **Zero-Touch Deployment**: Complete infrastructure provisioning without manual server access
+
+### Frontend Integration Ready
+
+**API Endpoints Available**
+- `POST /api/v1/upload/nessus` - File upload with response data
+- `GET /api/v1/upload/history` - Upload history with filtering
+- `GET /api/v1/upload/info` - Upload requirements and system limits
+- `GET /api/v1/status` - System health and processing status
+
+**Frontend Integration Points**
+The upload system is designed for frontend integration:
+- **RESTful Design**: Standard HTTP responses with JSON payloads
+- **Progress Callbacks**: Upload progress and processing status
+- **Error Handling**: Structured error responses for user-friendly messaging
+- **File Validation**: Client-side validation rules available via API
+- **Authentication Integration**: JWT token integration for user attribution
+
+**lovable.dev Integration Ready**
+The file upload system is positioned for rapid frontend development:
+- **Drag-and-Drop Support**: API designed for modern file upload components
+- **Real-time Feedback**: Response data for progress indicators
+- **Error Display**: Structured error messages for user feedback
+- **Upload History**: Audit trail for dashboard display
+- **Statistics Dashboard**: Processing statistics for analytics widgets
+
+This production-ready upload and parsing system eliminates the need for complex backend development, allowing frontend teams to focus on creating user experiences while leveraging data processing capabilities.
+
+---
+
 ## System Architecture
 
 ### Technical Stack (Hybrid Architecture)
@@ -198,12 +325,15 @@ The MVP leverages Supabase's capabilities to minimise backend development:
                                                 └──────────────────┘
 ```
 
-### Django API Endpoints (MVP - Minimal Set)
+### Django API Endpoints (Currently Implemented)
 ```
-# File Operations
-POST   /api/v1/upload/nessus        # Upload & parse Nessus file
+# File Operations - ✅ PRODUCTION READY
+POST   /api/v1/upload/nessus        # ✅ Upload & parse Nessus file (COMPLETE)
+GET    /api/v1/upload/history       # ✅ Upload history with filtering (COMPLETE)
+GET    /api/v1/upload/info          # ✅ Upload requirements and limits (COMPLETE)
+GET    /api/v1/status               # ✅ System health and status (COMPLETE)
 
-# Complex Operations  
+# Planned Complex Operations  
 POST   /api/v1/risk/calculate       # Recalculate risk scores
 GET    /api/v1/reports/sla          # SLA compliance report
 GET    /api/v1/reports/mttr         # MTTR metrics
@@ -578,30 +708,290 @@ Post-MVP will implement the full formula with threat intelligence and multi-fact
 - **Hosts Only**: Physical servers, VMs, workstations
 - Future phases will add: Code projects, websites, containers, cloud resources
 
-### 4.5 SLA Management (Basic MVP)
+### 4.5 Enhanced SLA Management System
 
-#### MVP Implementation
+Risk Radar implements an SLA management system. The system supports multiple SLA policies with priority-based resolution for complex organisational structures.
+
+#### Core SLA Concepts
+
+**SLA Policy**: A named configuration that defines remediation timeframes for each severity level (Critical, High, Medium, Low, Informational). Each policy can be assigned to one or more business groups.
+
+**Global SLA Policy**: A default fallback policy that applies to all assets not explicitly assigned to other SLA policies. This policy cannot be deleted but can be modified.
+
+**Priority-Based Resolution**: When an asset belongs to multiple business groups with different SLA policies, the system uses priority ordering to determine which SLA applies.
+
+#### SLA Policy Structure
+
+Each SLA policy contains:
+- **Name**: Human-readable identifier (e.g., "Production Environment", "PCI Compliance", "Development")
+- **Priority Order**: Numeric value determining precedence (higher numbers = higher priority)
+- **Severity-Specific Days**: Different remediation timeframes for each severity level
+- **Zero Days Handling**: Setting 0 days for any severity level disables SLA tracking for that severity
+
+#### Example SLA Policies
+
 ```json
 {
   "sla_policies": [
     {
-      "severity": "Critical",
-      "days": 7,
-      "business_group": "all"
+      "name": "PCI Compliance",
+      "priority_order": 200,
+      "critical_days": 3,
+      "high_days": 14,
+      "medium_days": 30,
+      "low_days": 90,
+      "informational_days": 0
     },
     {
-      "severity": "High", 
-      "days": 30,
-      "business_group": "all"
+      "name": "Production Environment", 
+      "priority_order": 100,
+      "critical_days": 7,
+      "high_days": 30,
+      "medium_days": 90,
+      "low_days": 180,
+      "informational_days": 0
+    },
+    {
+      "name": "Global SLA Policy",
+      "priority_order": 0,
+      "is_global_default": true,
+      "critical_days": 14,
+      "high_days": 60,
+      "medium_days": 180,
+      "low_days": 365,
+      "informational_days": 0
     }
   ]
 }
 ```
 
-#### Compliance Tracking
-- **Simple Status**: Within SLA / Overdue
-- **Basic Reporting**: Count and percentage compliance
-- **Manual Configuration**: Via Django admin
+#### Priority-Based SLA Resolution
+
+**The Challenge**: When an asset belongs to multiple business groups, each with different SLA policies, which SLA should apply?
+
+**The Solution**: Risk Radar uses a priority-based resolution system:
+
+1. **Identify Business Groups**: Find all business groups the asset belongs to
+2. **Collect SLA Policies**: Get SLA policies assigned to those business groups
+3. **Apply Priority Ordering**: Select the SLA policy with the highest priority number
+4. **Fallback to Global**: If no business group assignments exist, use the Global SLA Policy
+
+**Example Scenario**:
+- Asset: `database-server-01.company.com`
+- Business Groups: `Finance` (assigned to "PCI Compliance" SLA) + `Production` (assigned to "Production Environment" SLA)
+- Priority Resolution: "PCI Compliance" (priority 200) wins over "Production Environment" (priority 100)
+- Result: Critical vulnerabilities must be remediated within 3 days
+
+#### SLA Compliance Tracking
+
+**SLA Status Calculation**:
+- **Within SLA**: Vulnerability age ≤ SLA policy days for its severity
+- **Overdue/Exceeding**: Vulnerability age > SLA policy days for its severity
+- **No SLA**: Severity has 0 days configured (no tracking)
+
+**Compliance Metrics**:
+- **Compliance Percentage**: (Total findings - Overdue findings) / Total findings × 100
+- **Overdue Count**: Number of findings exceeding their SLA timeframe
+- **Average Days Overdue**: For findings that have exceeded their SLA
+
+#### Frontend API Integration
+
+The frontend will consume several API endpoints to display SLA information:
+
+##### 1. SLA Policies Management (`/api/v1/sla/policies`)
+
+**GET Request**: Retrieve all SLA policies with assignment information
+```json
+{
+  "sla_policies": [
+    {
+      "id": 1,
+      "name": "PCI Compliance",
+      "priority_order": 200,
+      "is_global_default": false,
+      "severity_days": {
+        "critical": 3,
+        "high": 14,
+        "medium": 30,
+        "low": 90,
+        "informational": 0
+      },
+      "assigned_business_groups": ["Finance", "Payment Processing"],
+      "affected_assets_count": 45,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Frontend Usage**: 
+- Display SLA policies in a management interface
+- Show priority ordering with drag-and-drop reordering
+- Enable creation/editing of policies
+- Display business group assignments
+
+##### 2. Asset SLA Resolution (`/api/v1/assets/{id}/sla`)
+
+**GET Request**: Get effective SLA policy for a specific asset
+```json
+{
+  "asset_id": 123,
+  "hostname": "database-server-01.company.com",
+  "business_groups": ["Finance", "Production"],
+  "effective_sla_policy": {
+    "name": "PCI Compliance",
+    "priority_order": 200,
+    "reason": "Highest priority among assigned business groups"
+  },
+  "sla_resolution_details": [
+    {
+      "business_group": "Finance",
+      "sla_policy": "PCI Compliance",
+      "priority": 200,
+      "selected": true
+    },
+    {
+      "business_group": "Production", 
+      "sla_policy": "Production Environment",
+      "priority": 100,
+      "selected": false
+    }
+  ]
+}
+```
+
+**Frontend Usage**:
+- Show asset details with effective SLA policy
+- Display SLA resolution logic for transparency
+- Highlight when assets have SLA conflicts
+- Provide audit trail for SLA assignments
+
+##### 3. SLA Compliance Dashboard (`/api/v1/reports/sla-compliance`)
+
+**GET Request**: SLA compliance reporting
+```json
+{
+  "global_summary": {
+    "total_findings": 1250,
+    "within_sla": 1050,
+    "overdue": 200,
+    "compliance_percentage": 84.0,
+    "no_sla_tracking": 0
+  },
+  "by_sla_policy": [
+    {
+      "policy_name": "PCI Compliance",
+      "total_findings": 156,
+      "compliance_by_severity": {
+        "critical": {
+          "sla_days": 3,
+          "total": 12,
+          "overdue": 2,
+          "compliance_percentage": 83.3,
+          "avg_days_overdue": 1.5
+        },
+        "high": {
+          "sla_days": 14,
+          "total": 45,
+          "overdue": 5,
+          "compliance_percentage": 88.9,
+          "avg_days_overdue": 3.2
+        }
+      }
+    }
+  ],
+  "by_business_group": [
+    {
+      "business_group": "Finance",
+      "effective_sla_policy": "PCI Compliance",
+      "compliance_percentage": 82.5,
+      "total_findings": 89,
+      "overdue_findings": 16
+    }
+  ]
+}
+```
+
+**Frontend Usage**:
+- Display executive dashboard with SLA compliance KPIs
+- Show compliance trends over time
+- Enable filtering by business group, SLA policy, or severity
+- Generate compliance reports for management
+
+##### 4. Finding SLA Status (`/api/v1/findings?include_sla=true`)
+
+**GET Request**: Findings list with SLA status information
+```json
+{
+  "findings": [
+    {
+      "finding_id": 789,
+      "vulnerability_title": "Critical SQL Injection in Login Form",
+      "asset_hostname": "web-server-01.finance.com",
+      "severity_level": 10,
+      "severity_label": "Critical",
+      "first_seen": "2025-01-01T10:00:00Z",
+      "status": "open",
+      "sla_info": {
+        "policy_name": "PCI Compliance",
+        "sla_days": 3,
+        "days_since_discovery": 5,
+        "sla_status": "overdue",
+        "days_overdue": 2,
+        "due_date": "2025-01-04T10:00:00Z"
+      }
+    }
+  ]
+}
+```
+
+**Frontend Usage**:
+- Display findings with clear SLA status indicators
+- Show overdue findings with red highlighting
+- Enable sorting/filtering by SLA status
+- Display countdown timers for upcoming SLA deadlines
+
+#### Frontend User Experience
+
+**SLA Policy Management Page**:
+- Drag-and-drop interface for priority reordering
+- Visual indicators showing which policy wins in conflicts
+- Business group assignment interface
+- Preview of how changes affect asset SLA assignments
+
+**Asset Detail Pages**:
+- Clear display of effective SLA policy
+- Explanation of why a particular SLA was chosen
+- Warning indicators for SLA conflicts
+- Historical SLA compliance for this asset
+
+**Dashboard Widgets**:
+- SLA compliance gauge charts
+- Overdue findings count with drill-down capability
+- Trending compliance over time
+- Top business groups with SLA issues
+
+**Findings Management**:
+- SLA status column in findings table
+- Color-coded SLA indicators (green = within SLA, red = overdue)
+- Bulk operations to update findings nearing SLA deadlines
+- SLA deadline notifications
+
+#### Administrative Features
+
+**SLA Policy Administration**:
+- Creation of new SLA policies with priority assignment
+- Modification of existing policies (except Global SLA Policy name/deletion)
+- Business group assignment management
+- Impact analysis before policy changes
+
+**Audit and Compliance**:
+- SLA policy change history
+- Compliance reporting over time
+- Export capabilities for compliance audits
+- Integration with external reporting systems
+
+This enhanced SLA system provides capability while maintaining simplicity for smaller organisations through the Global SLA Policy fallback.
 
 ### 4.6 Remediation Tracking (MVP)
 

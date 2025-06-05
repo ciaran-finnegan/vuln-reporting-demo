@@ -1,10 +1,14 @@
 # Risk Radar Backend
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](.) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Status](https://img.shields.io/badge/status-MVP--active-green)]()
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](.) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Status](https://img.shields.io/badge/status-deployed-green)]() [![Environment](https://img.shields.io/badge/environment-production-blue)](https://riskradar.dev.securitymetricshub.com)
 
 ## Overview
 
 Risk Radar is a hybrid Django + Supabase vulnerability management platform. It ingests Nessus scan files, manages assets and vulnerabilities, tracks remediation, and provides compliance reporting. The backend is built with Django and connects to a Supabase-hosted PostgreSQL database, with a React (lovable.dev) frontend for rapid UI development.
+
+**🚀 Live Demo**: [https://riskradar.dev.securitymetricshub.com](https://riskradar.dev.securitymetricshub.com)  
+**📊 API Status**: [https://riskradar.dev.securitymetricshub.com/api/v1/status](https://riskradar.dev.securitymetricshub.com/api/v1/status)  
+**🔧 Admin Interface**: [https://riskradar.dev.securitymetricshub.com/admin/](https://riskradar.dev.securitymetricshub.com/admin/)
 
 ---
 
@@ -33,10 +37,20 @@ Risk Radar is a hybrid Django + Supabase vulnerability management platform. It i
 ### 2. Backend Setup
 ```bash
 # Clone the repo
-# (Assume you are in the project root)
+git clone https://github.com/ciaran-finnegan/vuln-reporting-demo.git
+cd vuln-reporting-demo/riskradar
+
+# Install dependencies
 pip install -r requirements.txt
-cp .env.example .env  # Add your Supabase credentials
+
+# Configure environment
+cp ../development.env.template .env  # Add your Supabase credentials
+
+# Setup database
 python manage.py migrate
+python manage.py setup_asset_categories
+python manage.py setup_enhanced_nessus_mappings
+python manage.py populate_initial_data
 python manage.py createsuperuser
 ```
 
@@ -53,6 +67,31 @@ python manage.py runserver
 ### 5. Frontend (lovable.dev)
 - Connect to Supabase and Django API endpoints
 - Use built-in auth and storage components
+
+---
+
+## Deployment
+
+Risk Radar includes complete deployment automation with GitHub Actions and Digital Ocean hosting.
+
+### Production Deployment
+- **Hosting**: Digital Ocean droplets with Docker
+- **SSL**: Let's Encrypt certificates with automatic renewal
+- **CI/CD**: GitHub Actions with environment-based deployment
+- **Database**: Supabase PostgreSQL (managed)
+- **Monitoring**: Container health checks and nginx monitoring
+
+### Deployment Guide
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete setup instructions including:
+- Digital Ocean server configuration
+- GitHub Environments setup
+- SSL certificate configuration
+- Automated deployment workflow
+
+### Environment Structure
+- **Development**: `dev` branch → `riskradar.dev.securitymetricshub.com`
+- **Production**: `main` branch → production domain
+- **Feature branches**: Manual deployment for testing
 
 ---
 

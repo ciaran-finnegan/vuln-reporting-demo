@@ -2,6 +2,8 @@
 
 This guide provides step-by-step instructions for deploying RiskRadar to Digital Ocean with automated CI/CD using GitHub Actions. This setup supports both production and development environments with automatic deployment.
 
+**✅ Status**: Tested and working in production at [riskradar.dev.securitymetricshub.com](https://riskradar.dev.securitymetricshub.com)
+
 ## Environments
 
 - **Production**: Deploys from `main` branch to your production domain
@@ -251,7 +253,7 @@ certbot renew --dry-run
 
 ## 3. GitHub Configuration
 
-### 3.1 Enable GitHub Packages
+### 3.1 Enable GitHub Actions
 1. Go to your repository settings
 2. Navigate to "Actions" → "General"
 3. Ensure "Read and write permissions" is selected
@@ -264,33 +266,109 @@ On your local machine:
 ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/github_deploy
 ```
 
-Add public key to Digital Ocean droplet:
+Add public key to Digital Ocean droplets:
 ```bash
-# On the droplet, as deploy user
+# On each droplet (dev and prod), as deploy user
 mkdir -p ~/.ssh
 echo "YOUR_PUBLIC_KEY_CONTENT" >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 chmod 700 ~/.ssh
 ```
 
-### 3.3 Configure GitHub Secrets
-Go to your repository → Settings → Secrets and Variables → Actions
+### 3.3 Create GitHub Environments
+Go to your repository → Settings → Environments
 
-Add these repository secrets:
+#### Create Development Environment:
+1. Click "New environment"
+2. Name: `dev`
+3. Add environment secrets:
 
-**Production Secrets:**
+**Core Secrets:**
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
-| `PROD_HOST` | `YOUR_PRODUCTION_DROPLET_IP` | Production droplet IP address |
-| `PROD_USERNAME` | `deploy` | SSH username for production |
-| `PROD_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for production deployment |
+| `HOST` | `YOUR_DEV_DROPLET_IP` | Development droplet IP address |
+| `USERNAME` | `deploy` | SSH username for development |
+| `SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for development deployment |
+| `SECRET_KEY` | `your-generated-dev-secret-key` | Django secret key for development |
+| `DJANGO_ALLOWED_HOSTS` | `riskradar.dev.securitymetricshub.com,localhost,127.0.0.1` | Allowed hosts for development |
 
-**Development Secrets:**
+**Database Secrets:**
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
-| `DEV_HOST` | `YOUR_DEVELOPMENT_DROPLET_IP` | Development droplet IP address |
-| `DEV_USERNAME` | `deploy` | SSH username for development |
-| `DEV_SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for development deployment |
+| `DATABASE_URL` | `postgresql://postgres.xxx:password@host:6543/postgres` | Supabase database URL |
+| `POSTGRES_DB` | `aws-0-ap-southeast-2.pooler.supabase.com` | Database host for legacy config |
+| `POSTGRES_USER` | `postgres` | Database username |
+| `POSTGRES_PASSWORD` | `your-supabase-password` | Database password |
+| `DB_HOST` | `aws-0-ap-southeast-2.pooler.supabase.com` | Additional database host |
+| `DB_PASSWORD` | `your-supabase-password` | Additional database password |
+
+**Supabase Secrets:**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `SUPABASE_PROJECT_ID` | `jfcpfoehtcldmappkdsm` | Your Supabase project ID |
+| `SUPABASE_URL` | `https://jfcpfoehtcldmappkdsm.supabase.co` | Your Supabase URL |
+| `SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase service role key |
+| `SUPABASE_JWT_SECRET` | `olC5YZLARU6eszH9xFwIO02RvCjH...` | Your Supabase JWT secret |
+
+**Optional Secrets (can be empty for basic setup):**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `EMAIL_HOST` | `smtp.your-provider.com` | SMTP server (optional) |
+| `EMAIL_PORT` | `587` | SMTP port (optional) |
+| `EMAIL_HOST_USER` | `your-email@domain.com` | SMTP username (optional) |
+| `EMAIL_HOST_PASSWORD` | `your-smtp-password` | SMTP password (optional) |
+| `CORS_ALLOWED_ORIGINS` | `https://riskradar.dev.securitymetricshub.com,http://localhost:3000` | CORS allowed origins |
+| `LOG_LEVEL` | `ERROR` | Logging level |
+| `MVP_ALLOW_ANONYMOUS` | `True` | Allow anonymous access |
+
+#### Create Production Environment:
+1. Click "New environment"
+2. Name: `prod`
+3. **Enable deployment protection rules** (recommended):
+   - ✅ Required reviewers (add yourself)
+   - ✅ Wait timer: 0 minutes
+   - ✅ Deployment branches: Selected branches only → `main`
+4. Add environment secrets (same structure as dev, but with production values):
+
+**Core Secrets:**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `HOST` | `YOUR_PROD_DROPLET_IP` | Production droplet IP address |
+| `USERNAME` | `deploy` | SSH username for production |
+| `SSH_KEY` | `PRIVATE_KEY_CONTENT` | Private key for production deployment |
+| `SECRET_KEY` | `your-generated-prod-secret-key` | Django secret key for production |
+| `DJANGO_ALLOWED_HOSTS` | `your-domain.com,www.your-domain.com` | Allowed hosts for production |
+
+**Database Secrets:** (same Supabase database can be used for both environments)
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `DATABASE_URL` | `postgresql://postgres.xxx:password@host:6543/postgres` | Same Supabase database URL |
+| `POSTGRES_DB` | `aws-0-ap-southeast-2.pooler.supabase.com` | Database host for legacy config |
+| `POSTGRES_USER` | `postgres` | Database username |
+| `POSTGRES_PASSWORD` | `your-supabase-password` | Database password |
+| `DB_HOST` | `aws-0-ap-southeast-2.pooler.supabase.com` | Additional database host |
+| `DB_PASSWORD` | `your-supabase-password` | Additional database password |
+
+**Supabase Secrets:** (same as development)
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `SUPABASE_PROJECT_ID` | `jfcpfoehtcldmappkdsm` | Your Supabase project ID |
+| `SUPABASE_URL` | `https://jfcpfoehtcldmappkdsm.supabase.co` | Your Supabase URL |
+| `SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase service role key |
+| `SUPABASE_JWT_SECRET` | `olC5YZLARU6eszH9xFwIO02RvCjH...` | Your Supabase JWT secret |
+
+**Optional Secrets (can be empty for basic setup):**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `EMAIL_HOST` | `smtp.your-provider.com` | SMTP server (optional) |
+| `EMAIL_PORT` | `587` | SMTP port (optional) |
+| `EMAIL_HOST_USER` | `your-email@domain.com` | SMTP username (optional) |
+| `EMAIL_HOST_PASSWORD` | `your-smtp-password` | SMTP password (optional) |
+| `CORS_ALLOWED_ORIGINS` | `https://your-domain.com,https://www.your-domain.com` | CORS allowed origins |
+| `LOG_LEVEL` | `ERROR` | Logging level |
+| `MVP_ALLOW_ANONYMOUS` | `True` | Allow anonymous access |
 
 ### 3.4 Final Application Setup
 ```bash
@@ -441,11 +519,30 @@ Visit your domain:
 
 ## 6. Automated Deployment
 
-### 6.1 Test GitHub Actions
-1. Make a small change to your repository
-2. Commit and push to main branch
-3. Go to GitHub → Actions tab
-4. Verify the deployment workflow runs successfully
+### 6.1 Create Dev Branch and Test GitHub Actions
+First, create the dev branch for automated deployments:
+
+```bash
+# Create dev branch from your current feature branch
+git checkout -b dev
+git push origin dev
+```
+
+Then test the automated deployment:
+
+1. **Development Deployment:**
+   - Make a small change to your repository
+   - Commit and push to `dev` branch
+   - Go to GitHub → Actions tab
+   - Verify the development deployment workflow runs successfully
+   - Check `https://riskradar.dev.securitymetricshub.com/api/v1/status`
+
+2. **Production Deployment:**
+   - Create a pull request from `dev` to `main`
+   - Merge the pull request (or push directly to `main`)
+   - GitHub Actions will deploy to production environment
+   - **Note:** Production environment requires manual approval if you enabled deployment protection
+   - Check your production domain API endpoint
 
 ### 6.2 Monitor Deployment
 ```bash

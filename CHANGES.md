@@ -1,5 +1,28 @@
 # Changes
 
+## 0.2.1 (2025-01-03)
+
+### Upload Permissions Automation (2025-01-03)
+- **Permanent fix for file upload permissions**:
+  - Added automated temp_uploads directory creation to GitHub Actions deployment workflow
+  - Configured proper directory permissions (777) during deployment process
+  - Eliminated manual SSH intervention required for upload functionality
+  - Both production and development environments automatically configured
+- **Infrastructure automation improvements**:
+  - Deployment workflow creates temp_uploads directory before Docker container startup
+  - Idempotent operations ensure safe repeated deployments
+  - Clear deployment logging shows upload directory configuration status
+  - Zero-touch deployment process for complete infrastructure provisioning
+- **Documentation updates**:
+  - Updated PRODUCT_REQUIREMENTS_DOCUMENT.md with infrastructure automation details
+  - Added Phase 1F completion status to TODO.md
+  - Enhanced deployment troubleshooting documentation
+- **Production impact**:
+  - ✅ Resolves "The server doesn't have permission to write to the upload directory" error
+  - ✅ Ensures consistent upload functionality across all deployments
+  - ✅ Reduces deployment complexity and human error
+  - ✅ Provides automated recovery for infrastructure issues
+
 ## 0.2.0 (Unreleased)
 
 ### Duplicate File Detection Implementation (2025-01-03)
