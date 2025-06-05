@@ -368,6 +368,36 @@ def get_docker_logs(request, container_name):
             
         except docker.errors.NotFound:
             return Response({'error': f'Container {container_name} not found'}, status=status.HTTP_404_NOT_FOUND)
+        except (ConnectionError, FileNotFoundError, PermissionError) as docker_error:
+            # Handle Docker socket access issues gracefully
+            logger.warning(f"Docker socket access error for container {container_name}: {str(docker_error)}")
+            
+            # Return informative fallback message when Docker socket isn't accessible
+            now = timezone.now()
+            fallback_logs = [
+                {
+                    'timestamp': now.isoformat(),
+                    'message': f'[WARNING] Docker socket not accessible: {str(docker_error)}'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=30)).isoformat(),
+                    'message': f'[INFO] ENABLE_DOCKER_LOGS is enabled but Docker socket is not mounted'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=60)).isoformat(),
+                    'message': f'[INFO] Container: {container_name} - Socket access required for real logs'
+                }
+            ]
+            
+            return Response({
+                'container': container_name,
+                'logs': fallback_logs,
+                'total_lines': len(fallback_logs),
+                'lines_requested': lines,
+                'docker_logs_enabled': True,
+                'docker_socket_accessible': False,
+                'error_message': f'Docker socket access error: {str(docker_error)}'
+            })
         except Exception as docker_error:
             logger.error(f"Docker API error for container {container_name}: {str(docker_error)}")
             return Response({'error': f'Docker error: {str(docker_error)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

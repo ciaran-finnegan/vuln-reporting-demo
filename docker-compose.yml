@@ -7,9 +7,12 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - ENABLE_DOCKER_LOGS=${ENABLE_DOCKER_LOGS:-false}
     volumes:
       - ./temp_uploads:/app/temp_uploads
       - ./staticfiles:/app/staticfiles
+      # Docker socket mount disabled in production for security
     restart: unless-stopped
 
   nginx:
