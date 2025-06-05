@@ -129,6 +129,12 @@ jobs:
           # Pull latest code
           git pull origin main
           
+          # Create and configure temp_uploads directory for file uploads
+          echo "🗂️  Setting up temp_uploads directory..."
+          mkdir -p ./temp_uploads
+          chmod 777 ./temp_uploads
+          echo "✅ temp_uploads directory created with proper permissions"
+          
           # Update environment file
           echo "DEBUG=False" > .env
           echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
@@ -223,6 +229,12 @@ jobs:
           
           # Pull latest code
           git pull origin dev
+          
+          # Create and configure temp_uploads directory for file uploads
+          echo "🗂️  Setting up temp_uploads directory..."
+          mkdir -p ./temp_uploads
+          chmod 777 ./temp_uploads
+          echo "✅ temp_uploads directory created with proper permissions"
           
           # Update environment file
           echo "DEBUG=True" > .env
