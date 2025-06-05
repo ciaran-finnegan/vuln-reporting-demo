@@ -1,6 +1,6 @@
 # Risk Radar Development Roadmap & TODO
 
-## Status: Phase 1E Complete - Ready for UI Development
+## Status: JWT Authentication Fixed - All Backend APIs Ready
 
 This document tracks implementation tasks aligned with the MVP Feature Matrix in the Product Requirements Document. See [CHANGES.md](./CHANGES.md) for release notes.
 
@@ -18,6 +18,7 @@ This document tracks implementation tasks aligned with the MVP Feature Matrix in
 ### 🚀 Current Priority Branches
 | Branch | Priority | Phase | Description |
 |--------|----------|-------|-------------|
+| `feature/api-documentation` | **HIGH** | 2E | Comprehensive API documentation with Swagger, Postman, examples |
 | `feature/lovable-ui-supabase` | **HIGH** | 1B | lovable.dev UI + Supabase authentication & storage |
 | `feature/django-reporting-api` | **MEDIUM** | 1C | Django reporting endpoints (`GET /api/reports/mttr`, `/sla`) |
 
@@ -26,6 +27,7 @@ This document tracks implementation tasks aligned with the MVP Feature Matrix in
 |--------|----------|-------|-------------|
 | `feature/ui-dashboard` | **Medium** | 2 | Core UI pages (Dashboard, Assets, Vulnerabilities, Findings) |
 | `feature/ui-upload-page` | **Medium** | 2 | File upload interface with drag-and-drop |
+| `feature/log-management-system` | **Medium** | 2D | System monitoring & log management (backend + frontend) |
 | `feature/testing-deployment` | **Low** | 4 | Testing, documentation, production deployment |
 
 ### 📊 Branch Completion Summary
@@ -280,6 +282,75 @@ The file upload permissions issue has been permanently resolved through automate
 
 ---
 
+## ✅ COMPLETED: JWT Authentication Fix (2025-01-05)
+
+### Critical Authentication Issue Resolved - All APIs Now JWT Compatible
+Risk Radar had a critical authentication issue where log management endpoints were using Django session authentication instead of JWT tokens, causing 404 redirects to `/accounts/login/`. This has been **completely resolved**.
+
+#### Changes Completed:
+1. **Fixed Authentication Architecture**: ✅ Converted all log management APIs from session-based to JWT authentication
+2. **Updated Permission Classes**: ✅ Created `IsAdminUser` permission class for consistent JWT-based admin access
+3. **Consistent Response Format**: ✅ All endpoints now use DRF Response instead of mixed JsonResponse/Response
+4. **Added Missing Auth Endpoints**: ✅ Added `/api/v1/auth/status` and `/api/v1/auth/profile` endpoints
+5. **Updated Documentation**: ✅ Updated all API docs, Postman collection, and guides to reflect fixes
+6. **Environment Configuration**: ✅ Added admin JWT token configuration to Postman collection
+
+#### Fixed Endpoints:
+- ✅ `GET /api/v1/logs/` - System logs (now accepts JWT tokens)
+- ✅ `GET /api/v1/logs/analytics/error-rate/` - Error trending (fixed)
+- ✅ `GET /api/v1/logs/analytics/by-source/` - Log volume (fixed)
+- ✅ `GET /api/v1/logs/analytics/top-errors/` - Frequent errors (fixed)
+- ✅ `GET /api/v1/logs/docker/{container}/` - Container logs (fixed)
+- ✅ `GET /api/v1/logs/health/` - System health (fixed)
+- ✅ `GET /api/v1/auth/status` - Authentication check (new)
+- ✅ `GET /api/v1/auth/profile` - User profile (new)
+
+#### Authentication Architecture Now Consistent:
+- ✅ **All API endpoints** use Django REST Framework with JWT authentication
+- ✅ **Admin endpoints** require `is_staff=True` via custom `IsAdminUser` permission
+- ✅ **Frontend integration** now works seamlessly with Supabase JWT tokens
+- ✅ **No more redirects** to `/accounts/login/` - all endpoints return proper JSON
+
+---
+
+## ✅ COMPLETED: Phase 2E - API Documentation & Developer Experience (2025-01-05)
+
+### Comprehensive API Documentation System Successfully Implemented
+Risk Radar now provides a complete developer experience with multiple documentation formats and integration tools.
+
+#### Changes Completed:
+1. **Interactive API Documentation**: ✅ Swagger/OpenAPI specification with live testing capability
+2. **Postman Collections**: ✅ Ready-to-import API testing collections with authentication
+3. **Developer Portal**: ✅ Comprehensive API guides and code examples
+4. **Authentication Documentation**: ✅ JWT token setup and usage guides
+5. **Code Examples**: ✅ Python, JavaScript, and cURL integration examples
+6. **Error Handling Documentation**: ✅ Standardised error responses and troubleshooting
+
+#### Documentation Structure Implemented:
+- ✅ `/docs/api/api-guide.md` - Complete developer guide
+- ✅ `/docs/api/authentication.md` - JWT token setup and usage
+- ✅ `/docs/api/risk-radar-api.postman_collection.json` - Postman collection
+- ✅ `/docs/examples/python-client.py` - Python SDK example
+- ✅ `/docs/examples/javascript-client.js` - JavaScript integration
+- ✅ `/docs/examples/curl-examples.sh` - Command-line examples
+
+#### Developer Experience Features:
+- ✅ **Live Interactive Documentation**: Available at `/api/docs/` and `/api/redoc/`
+- ✅ **Multi-Format Support**: Written guides, Postman collections, code examples
+- ✅ **Authentication Integration**: Complete JWT token lifecycle documentation
+- ✅ **Error Documentation**: Comprehensive error handling and debugging guides
+- ✅ **Rate Limiting Documentation**: Clear usage guidelines and limits
+- ✅ **Integration Examples**: Ready-to-use code snippets for common scenarios
+
+#### Production Impact:
+- ✅ **Reduced Integration Time**: Developers can integrate APIs in minutes, not hours
+- ✅ **Self-Service Documentation**: Complete documentation reduces support requests
+- ✅ **Professional Developer Experience**: Enterprise-grade API documentation
+- ✅ **Multiple Learning Styles**: Visual (Swagger), hands-on (Postman), code (examples)
+- ✅ **Maintainable Documentation**: Auto-generated from code, always up-to-date
+
+---
+
 ## 🔥 IMMEDIATE TASKS: Frontend Development (Backend Complete!)
 
 **✅ BACKEND STATUS: File upload, Nessus parsing, database, and API endpoints are PRODUCTION READY**
@@ -339,6 +410,50 @@ The file upload permissions issue has been permanently resolved through automate
 - [ ] **GET /api/v1/reports/sla-compliance** - SLA compliance data
 - [ ] **Enhanced dashboard analytics**
 - [ ] **Export functionality** (CSV)
+
+### Phase 2D: System Monitoring & Log Management (2-3 days) - **FOURTH PRIORITY**
+*Comprehensive log viewing and system monitoring for administrators*
+
+- [ ] **Backend Log Infrastructure** (1 day)
+  - [ ] Supabase `system_logs` table creation with proper indexes
+  - [ ] Custom Django log handler (`SupabaseLogHandler`) for real-time log streaming
+  - [ ] Enhanced Django settings with structured logging configuration
+  - [ ] Request correlation middleware for end-to-end tracing
+  - [ ] Log collection from Django, Docker containers, and system sources
+
+- [ ] **Django Log Management APIs** (1 day)
+  - [ ] `GET /api/v1/logs` - Filtered log retrieval with pagination
+  - [ ] `WebSocket /ws/logs/` - Real-time log streaming with filtering
+  - [ ] `GET /api/v1/logs/analytics/error-rate` - Error trending analytics
+  - [ ] `GET /api/v1/logs/analytics/by-source` - Log volume by source
+  - [ ] `GET /api/v1/logs/analytics/top-errors` - Most frequent errors
+  - [ ] `GET /api/v1/logs/docker/{container}` - Container log access
+  - [ ] `GET /api/v1/logs/health` - System health metrics
+  - [ ] Admin-only access controls with Supabase RLS policies
+
+- [ ] **Frontend Log Viewer (lovable.dev)** (1 day)
+  - [ ] **Log Viewer Page** (`/admin/logs`) with comprehensive filtering interface
+    - [ ] Filter bar: Log level, source, time range, search, real-time toggle
+    - [ ] Virtual scrolling log table with expandable rows
+    - [ ] Log level badges with color coding (ERROR=red, WARNING=orange, INFO=blue)
+    - [ ] Source icons and user linking
+    - [ ] Expandable log details sidebar with JSON metadata viewer
+  - [ ] **Log Analytics Dashboard** (`/admin/logs/analytics`)
+    - [ ] Error rate trend line chart with 24h timeframe
+    - [ ] Log distribution pie chart by source
+    - [ ] Top errors list with count and drill-down links
+    - [ ] System health metrics grid with trend indicators
+  - [ ] **Real-time Features**
+    - [ ] WebSocket integration for live log streaming
+    - [ ] Auto-scroll with pause-on-user-scroll functionality
+    - [ ] Connection status indicator and reconnection handling
+    - [ ] Rate limiting to prevent UI overwhelming
+
+- [ ] **Advanced Features** (Optional)
+  - [ ] Log retention and cleanup automation
+  - [ ] Export logs to CSV/JSON functionality
+  - [ ] Log alerting for critical errors
+  - [ ] Performance monitoring integration
 
 ---
 
@@ -640,6 +755,15 @@ Implement priority-based SLA management system inspired by Vulcan Cyber's approa
 - [ ] **Advanced RBAC**
 - [ ] **SSO integration**
 
+### System Monitoring & Observability
+- [ ] **System log management** (Phase 2D)
+- [ ] **Real-time log streaming**
+- [ ] **Log analytics and trending**
+- [ ] **Performance monitoring**
+- [ ] **System health dashboards**
+- [ ] **Error alerting and notifications**
+- [ ] **Container and infrastructure monitoring**
+
 ---
 
 ## 📊 Phase Completion Summary
@@ -657,6 +781,7 @@ Implement priority-based SLA management system inspired by Vulcan Cyber's approa
 ### 📋 Next Phases:
 - **Phase 2B**: Enhanced SLA System (backend + frontend)
 - **Phase 2C**: Reporting APIs
+- **Phase 2D**: System Monitoring & Log Management
 - **Phase 3**: Advanced Analytics & Dashboards
 - **Phase 4**: Additional Scanner Integrations
 
@@ -678,4 +803,4 @@ Implement priority-based SLA management system inspired by Vulcan Cyber's approa
 
 ---
 
-*Last Updated: 2025-01-03 - Backend 100% Complete (File Upload + Parsing Production Ready), Frontend Only Remaining* 
+*Last Updated: 2025-01-05 - Backend 100% Complete, System Monitoring & Log Management Feature Added for Phase 2D* 

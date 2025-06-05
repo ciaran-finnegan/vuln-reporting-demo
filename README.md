@@ -95,6 +95,54 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete setup instructions including:
 
 ---
 
+## 🚀 API Testing & Development
+
+### Quick API Testing
+Risk Radar provides comprehensive API documentation and testing tools:
+
+#### Authentication Testing
+```bash
+# Check authentication status
+curl -H "Authorization: Bearer your-jwt-token" \
+  https://riskradar.dev.securitymetricshub.com/api/v1/auth/status
+
+# Get user profile and permissions  
+curl -H "Authorization: Bearer your-jwt-token" \
+  https://riskradar.dev.securitymetricshub.com/api/v1/auth/profile
+```
+
+#### File Upload Testing
+```bash
+# Upload Nessus file with authentication
+curl -X POST \
+  -H "Authorization: Bearer your-jwt-token" \
+  -F "file=@scan.nessus" \
+  https://riskradar.dev.securitymetricshub.com/api/v1/upload/nessus
+
+# Check upload history
+curl https://riskradar.dev.securitymetricshub.com/api/v1/upload/history
+```
+
+#### System Monitoring (Admin Only)
+```bash
+# View system logs
+curl -H "Authorization: Bearer admin-jwt-token" \
+  "https://riskradar.dev.securitymetricshub.com/api/v1/logs/?level=ERROR&limit=10"
+
+# Get system health metrics  
+curl -H "Authorization: Bearer admin-jwt-token" \
+  https://riskradar.dev.securitymetricshub.com/api/v1/logs/health/
+```
+
+### Developer Resources
+- **📖 API Documentation**: [docs/api/api-guide.md](./docs/api/api-guide.md)
+- **🔐 Authentication Guide**: [docs/api/authentication.md](./docs/api/authentication.md)  
+- **📮 Postman Collection**: [docs/api/risk-radar-api.postman_collection.json](./docs/api/risk-radar-api.postman_collection.json)
+- **💻 Code Examples**: [docs/examples/](./docs/examples/) (Python, JavaScript, cURL)
+- **🌐 Interactive Docs**: [riskradar.dev.securitymetricshub.com/api/docs/](https://riskradar.dev.securitymetricshub.com/api/docs/)
+
+---
+
 ## Project Structure
 
 ```
@@ -265,9 +313,39 @@ python manage.py runserver
 
 ---
 
-## API Endpoints
+## 🔌 API Documentation
 
-Risk Radar provides RESTful API endpoints for file uploads, duplicate detection, and upload management:
+Risk Radar provides a comprehensive RESTful API for vulnerability management automation.
+
+### Quick Links
+- 📖 **[API Guide](docs/api/api-guide.md)** - Complete developer documentation
+- 🔗 **[Interactive Docs](https://riskradar.dev.securitymetricshub.com/api/docs/)** - Swagger UI
+- 📁 **[Postman Collection](docs/api/risk-radar-api.postman_collection.json)** - Ready-to-import collection
+- 🔐 **[Authentication Guide](docs/api/authentication.md)** - JWT token setup
+- 💻 **[Code Examples](docs/examples/)** - Python, JavaScript, cURL examples
+
+### API Endpoints
+```bash
+# Health check
+GET /api/v1/status
+
+# File upload
+POST /api/v1/upload/nessus
+
+# Upload history  
+GET /api/v1/upload/history
+
+# User profile
+GET /api/v1/auth/profile
+
+# System logs (admin)
+GET /api/v1/logs/
+```
+
+### Quick Start
+1. **Get your API token** from the Risk Radar web app
+2. **Import our [Postman collection](docs/api/risk-radar-api.postman_collection.json)**
+3. **Try the examples** in [docs/examples/](docs/examples/)
 
 ### Upload & File Management
 ```bash
@@ -286,10 +364,25 @@ GET /api/v1/upload/history?status=completed&limit=10
 GET /api/v1/upload/info
 ```
 
-### System Status
+### Authentication & User Management
 ```bash
-# Check API status and available endpoints
-GET /api/v1/status
+# Check authentication status
+GET /api/v1/auth/status
+
+# Get user profile and permissions
+GET /api/v1/auth/profile
+Authorization: Bearer your-jwt-token
+```
+
+### System Monitoring (Admin Only)
+```bash
+# Get system logs with filtering
+GET /api/v1/logs/?level=ERROR&source=django&limit=50
+Authorization: Bearer admin-jwt-token
+
+# Get system health metrics
+GET /api/v1/logs/health/
+Authorization: Bearer admin-jwt-token
 ```
 
 ### Response Examples

@@ -58,6 +58,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.logging_handlers.RequestLoggingMiddleware',  # Add request logging middleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -173,21 +174,40 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
+        'json': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
+        'supabase': {
+            'class': 'core.logging_handlers.SupabaseLogHandler',
+            'formatter': 'json',
+            'level': 'INFO',  # Only log INFO and above to database
+        },
     },
     'root': {
-        'handlers': ['console'],
+        'handlers': ['console', 'supabase'],
         'level': LOG_LEVEL,
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'supabase'],
             'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        'core': {
+            'handlers': ['console', 'supabase'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],  # Don't log SQL queries to database
+            'level': 'WARNING',  # Only log database errors, not queries
             'propagate': False,
         },
     },

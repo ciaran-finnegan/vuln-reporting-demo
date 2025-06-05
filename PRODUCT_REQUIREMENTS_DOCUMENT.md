@@ -89,6 +89,23 @@ Risk Radar provides a vulnerability management platform with features designed t
 - **Multi-Tenancy**: Logical separation of business units
 - **Backup & Recovery**: Automated backup with point-in-time recovery
 
+### 📖 Developer Experience & API Documentation
+- **Interactive Documentation**: Swagger/OpenAPI specification with live testing
+- **Postman Collections**: Ready-to-import API testing collections
+- **Developer Portal**: Comprehensive API guides and examples
+- **Code Examples**: Python, JavaScript, and cURL integration examples
+- **Authentication Guides**: JWT token setup and usage documentation
+- **Error Handling**: Standardised error responses and troubleshooting guides
+
+### 📊 System Monitoring & Logs
+- **Centralised Log Management**: System, application, and container logs in unified interface
+- **Real-time Log Streaming**: Live log monitoring with WebSocket updates
+- **Advanced Log Filtering**: Filter by level, source, user, date range, and custom search
+- **Log Analytics**: Error trending, performance monitoring, and system health metrics
+- **Admin Log Access**: Secure admin-only access to sensitive system logs
+- **Request Correlation**: Track requests across services with correlation IDs
+- **Log Retention**: Automated cleanup with configurable retention policies
+
 ---
 
 ## MVP Feature Matrix
@@ -147,11 +164,24 @@ The following table outlines which features will be implemented in the MVP phase
 | | SSO integration | ❌ | ✅ | Phase 6 |
 | | REST API (minimal) | ✅ | | Upload & reports only |
 | | Full REST API | ❌ | ✅ | Phase 7 |
+| **System Monitoring** | | | | |
+| | Basic system logs | ✅ | | Django logging only |
+| | Centralised log management | ❌ | ✅ | Phase 3 |
+| | Real-time log streaming | ❌ | ✅ | Phase 3 |
+| | Log analytics & trending | ❌ | ✅ | Phase 4 |
+| | Advanced log filtering | ❌ | ✅ | Phase 3 |
+| | Request correlation | ❌ | ✅ | Phase 4 |
 | **UI/UX** | | | | |
 | | lovable.dev UI | ✅ | | Rapid development |
 | | Mobile responsive | ✅ | | Built-in with lovable |
 | | Dark mode | ❌ | ✅ | Future enhancement |
 | | Custom branding | ❌ | ✅ | Enterprise feature |
+| **Developer Experience** | | | | |
+| | Interactive API documentation | ✅ | | Swagger/OpenAPI spec |
+| | Postman collections | ✅ | | Ready-to-import testing |
+| | Code examples | ✅ | | Python, JS, cURL samples |
+| | Authentication guides | ✅ | | JWT token setup |
+| | Developer portal | ❌ | ✅ | Advanced documentation |
 
 ### MVP Success Criteria
 The MVP will be considered successful when it can:
@@ -163,6 +193,7 @@ The MVP will be considered successful when it can:
 6. ✅ Support business groups for organisational context
 7. ✅ Provide basic user access control
 8. ✅ Export data for external reporting
+9. ✅ Provide comprehensive API documentation for developers
 
 ---
 
@@ -292,6 +323,143 @@ This production-ready upload and parsing system eliminates the need for complex 
 
 ---
 
+## Developer Experience & API Documentation (Production Ready)
+
+Risk Radar provides a comprehensive developer experience with multiple documentation formats and integration tools to make API consumption simple and efficient.
+
+### API Documentation System
+
+**Interactive Documentation**
+- **Swagger/OpenAPI Specification**: Auto-generated from Django code with live testing capability
+- **Interactive API Explorer**: Test endpoints directly from documentation browser
+- **Request/Response Examples**: Complete examples for all endpoints
+- **Authentication Testing**: Built-in JWT token testing interface
+- **Schema Validation**: Real-time request/response validation
+
+**Multi-Format Documentation**
+- **Written Guides**: Comprehensive developer documentation in `/docs/api/`
+- **Postman Collections**: Ready-to-import collections with pre-configured requests
+- **Code Examples**: Integration examples in Python, JavaScript, and cURL
+- **Authentication Guides**: Step-by-step JWT token setup and usage
+
+### Developer Tools & Resources
+
+**Postman Integration**
+- **Complete API Collection**: All endpoints with examples and tests
+- **Environment Variables**: Pre-configured for production and development
+- **Automated Testing**: Built-in tests for response validation
+- **Authentication Setup**: JWT token configuration examples
+- **Error Scenarios**: Test cases for error handling validation
+
+**Code Examples Library**
+- **Python Client**: Complete SDK with error handling and retry logic
+- **JavaScript Integration**: Frontend integration examples
+- **cURL Scripts**: Command-line testing and automation examples
+- **Authentication Flows**: Token acquisition and refresh examples
+
+**Documentation Portal Structure**
+```
+/docs/api/
+├── api-guide.md              # Complete developer guide
+├── authentication.md         # JWT token setup and usage
+├── risk-radar-api.postman_collection.json  # Postman collection
+├── risk-radar-api.openapi.yml             # OpenAPI specification
+└── examples/
+    ├── python-client.py      # Python SDK example
+    ├── javascript-client.js  # JavaScript integration
+    └── curl-examples.sh      # Command-line examples
+```
+
+### API Endpoints Documentation
+
+**Live Interactive Documentation**
+- **Production**: `https://riskradar.dev.securitymetricshub.com/api/docs/`
+- **Alternative Format**: `https://riskradar.dev.securitymetricshub.com/api/redoc/`
+- **OpenAPI Schema**: `https://riskradar.dev.securitymetricshub.com/api/schema/`
+
+**Core API Endpoints**
+```bash
+# File Upload & Management
+POST   /api/v1/upload/nessus        # Upload Nessus files
+GET    /api/v1/upload/history       # Upload audit trail
+GET    /api/v1/upload/info          # Upload requirements
+
+# Authentication & User Management
+GET    /api/v1/auth/status          # Check authentication
+GET    /api/v1/auth/profile         # User profile & permissions
+
+# System Monitoring (Admin Only)
+GET    /api/v1/logs/                # System logs with filtering
+GET    /api/v1/logs/analytics/      # Log analytics & trends
+GET    /api/v1/logs/health/         # System health metrics
+
+# System Status
+GET    /api/v1/status               # API health check
+```
+
+### Developer Support Features
+
+**Error Handling & Debugging**
+- **Standardised Error Responses**: Consistent JSON error format across all endpoints
+- **HTTP Status Codes**: Proper status codes for all scenarios
+- **Error Documentation**: Common errors with solutions
+- **Debugging Headers**: Request correlation IDs for troubleshooting
+
+**Rate Limiting & Performance**
+- **Documented Limits**: Clear rate limits for each endpoint type
+- **Performance Guidelines**: Best practices for high-volume usage
+- **Pagination Support**: Efficient data retrieval for large datasets
+- **Caching Headers**: Proper cache control for optimal performance
+
+**Authentication & Security**
+- **JWT Token Documentation**: Complete token lifecycle management
+- **Security Best Practices**: Token storage and refresh guidelines
+- **CORS Configuration**: Cross-origin request setup
+- **API Versioning**: Forward compatibility guidelines
+
+### Integration Examples
+
+**Quick Start Integration**
+```python
+# Python client example
+from risk_radar_client import RiskRadarClient
+
+client = RiskRadarClient(
+    base_url='https://riskradar.dev.securitymetricshub.com',
+    token='your-jwt-token'
+)
+
+# Upload a file
+result = client.upload_nessus_file('scan.nessus')
+print(f"Processed: {result['statistics']}")
+
+# Get upload history
+history = client.get_upload_history()
+```
+
+**Frontend Integration**
+```javascript
+// JavaScript/React integration
+const uploadFile = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch('/api/v1/upload/nessus', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+  
+  return response.json();
+};
+```
+
+This comprehensive developer experience ensures easy API adoption and reduces integration time for development teams.
+
+---
+
 ## System Architecture
 
 ### Technical Stack (Hybrid Architecture)
@@ -332,6 +500,15 @@ POST   /api/v1/upload/nessus        # ✅ Upload & parse Nessus file (COMPLETE)
 GET    /api/v1/upload/history       # ✅ Upload history with filtering (COMPLETE)
 GET    /api/v1/upload/info          # ✅ Upload requirements and limits (COMPLETE)
 GET    /api/v1/status               # ✅ System health and status (COMPLETE)
+
+# Planned Log Management Operations
+GET    /api/v1/logs                 # Get filtered logs with pagination
+WS     /ws/logs/                    # Real-time log streaming
+GET    /api/v1/logs/analytics/error-rate  # Error rate trending
+GET    /api/v1/logs/analytics/by-source   # Logs by source breakdown
+GET    /api/v1/logs/analytics/top-errors  # Most frequent errors
+GET    /api/v1/logs/docker/{container}    # Container logs
+GET    /api/v1/logs/health          # System health metrics
 
 # Planned Complex Operations  
 POST   /api/v1/risk/calculate       # Recalculate risk scores
@@ -993,7 +1170,290 @@ The frontend will consume several API endpoints to display SLA information:
 
 This enhanced SLA system provides capability while maintaining simplicity for smaller organisations through the Global SLA Policy fallback.
 
-### 4.6 Remediation Tracking (MVP)
+### 4.6 System Monitoring & Log Management
+
+Risk Radar provides comprehensive system monitoring and log management capabilities for administrators to monitor system health, troubleshoot issues, and maintain operational visibility.
+
+#### Core Log Management Features
+
+**Centralised Log Collection**
+- **Multi-Source Integration**: Django application logs, Docker container logs, system logs, and nginx access logs
+- **Structured Logging**: JSON-formatted logs with consistent fields (timestamp, level, source, message, metadata)
+- **Real-time Processing**: Live log streaming with WebSocket connections for immediate visibility
+- **Persistent Storage**: Logs stored in Supabase with proper indexing for fast retrieval
+
+**Advanced Filtering & Search**
+- **Log Level Filtering**: Filter by DEBUG, INFO, WARNING, ERROR, CRITICAL levels
+- **Source Filtering**: Filter by django, docker, system, nginx sources
+- **Time Range Selection**: Custom date/time range picker with preset options (Last hour, Today, Last 7 days)
+- **Text Search**: Full-text search across log messages with highlighting
+- **User Filtering**: Filter logs by specific user activities (admin only)
+- **Request Correlation**: Group related logs by request ID for end-to-end tracing
+
+**Log Analytics Dashboard**
+- **Error Rate Trending**: Charts showing error rates over time
+- **Log Volume Metrics**: Logs per minute/hour by source and level
+- **Top Errors**: Most frequent error messages with counts
+- **Performance Monitoring**: Response time tracking from request logs
+- **System Health**: Container status and resource usage indicators
+
+#### Frontend UI Components (lovable.dev Implementation)
+
+**Log Viewer Page (`/admin/logs`)**
+```typescript
+interface LogViewerPage {
+  layout: "admin-dashboard";
+  components: [
+    {
+      type: "FilterBar";
+      position: "top";
+      elements: [
+        {
+          type: "dropdown";
+          label: "Log Level";
+          options: ["ALL", "ERROR", "WARNING", "INFO", "DEBUG"];
+          defaultValue: "ALL";
+        },
+        {
+          type: "dropdown"; 
+          label: "Source";
+          options: ["ALL", "django", "docker", "system", "nginx"];
+          defaultValue: "ALL";
+        },
+        {
+          type: "dateRangePicker";
+          label: "Time Range";
+          presets: ["Last hour", "Today", "Last 7 days", "Custom"];
+          defaultValue: "Last hour";
+        },
+        {
+          type: "searchInput";
+          placeholder: "Search log messages...";
+          icon: "search";
+        },
+        {
+          type: "toggle";
+          label: "Real-time";
+          description: "Auto-update with new logs";
+        }
+      ];
+    },
+    {
+      type: "LogTable";
+      position: "main";
+      features: [
+        "virtualScrolling",
+        "autoRefresh", 
+        "rowHighlighting",
+        "expandableRows"
+      ];
+      columns: [
+        {
+          field: "timestamp";
+          label: "Time";
+          width: "180px";
+          format: "datetime";
+          sortable: true;
+        },
+        {
+          field: "level";
+          label: "Level";
+          width: "80px";
+          render: "LogLevelBadge";
+          sortable: true;
+        },
+        {
+          field: "source";
+          label: "Source";
+          width: "100px";
+          render: "SourceIcon";
+          sortable: true;
+        },
+        {
+          field: "module";
+          label: "Module";
+          width: "150px";
+          sortable: true;
+        },
+        {
+          field: "message";
+          label: "Message";
+          width: "flexible";
+          render: "ExpandableText";
+          searchHighlight: true;
+        },
+        {
+          field: "user";
+          label: "User";
+          width: "120px";
+          render: "UserLink";
+        }
+      ];
+    },
+    {
+      type: "LogDetailsSidebar";
+      position: "right";
+      trigger: "rowClick";
+      sections: [
+        {
+          title: "Log Details";
+          fields: ["timestamp", "level", "source", "module", "message"];
+        },
+        {
+          title: "Context";
+          fields: ["user_id", "request_id", "file", "line_number"];
+        },
+        {
+          title: "Metadata";
+          render: "JsonViewer";
+          field: "metadata";
+        }
+      ];
+    }
+  ];
+  permissions: ["admin"];
+}
+```
+
+**Log Level Badge Component**
+```typescript
+interface LogLevelBadge {
+  level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  styling: {
+    DEBUG: { bg: "gray-100", text: "gray-600", border: "gray-300" };
+    INFO: { bg: "blue-100", text: "blue-600", border: "blue-300" };
+    WARNING: { bg: "yellow-100", text: "yellow-600", border: "yellow-300" };
+    ERROR: { bg: "red-100", text: "red-600", border: "red-300" };
+    CRITICAL: { bg: "red-600", text: "white", border: "red-700" };
+  };
+  size: "sm" | "md";
+  showIcon: boolean;
+}
+```
+
+**Real-time Log Stream Component**
+```typescript
+interface RealTimeLogStream {
+  websocketUrl: "/ws/logs/";
+  maxBuffer: 1000; // Maximum logs to keep in memory
+  autoScroll: boolean;
+  pauseOnUserScroll: boolean;
+  reconnectOnFailure: true;
+  showConnectionStatus: true;
+  rateLimit: "10/second"; // Prevent overwhelming the UI
+}
+```
+
+**Log Analytics Dashboard (`/admin/logs/analytics`)**
+```typescript
+interface LogAnalyticsDashboard {
+  layout: "grid-2x2";
+  components: [
+    {
+      type: "LineChart";
+      title: "Error Rate Trend";
+      dataSource: "/api/v1/logs/analytics/error-rate";
+      xAxis: "time";
+      yAxis: "error_count";
+      timeRange: "24h";
+      refreshInterval: "5m";
+    },
+    {
+      type: "PieChart";
+      title: "Logs by Source";
+      dataSource: "/api/v1/logs/analytics/by-source";
+      refreshInterval: "5m";
+    },
+    {
+      type: "TopErrorsList";
+      title: "Most Frequent Errors";
+      dataSource: "/api/v1/logs/analytics/top-errors";
+      showCount: 10;
+      linkToLogs: true;
+    },
+    {
+      type: "MetricsGrid";
+      title: "System Health";
+      metrics: [
+        { label: "Total Logs (24h)", value: "12,486", trend: "+5%" },
+        { label: "Error Rate", value: "0.8%", trend: "-12%" },
+        { label: "Avg Response Time", value: "245ms", trend: "+8%" },
+        { label: "Active Users", value: "23", trend: "stable" }
+      ];
+    }
+  ];
+  permissions: ["admin"];
+}
+```
+
+#### Backend API Endpoints
+
+**Log Retrieval APIs**
+```typescript
+// Get filtered logs with pagination
+GET /api/v1/logs?level={level}&source={source}&search={query}&limit={limit}&offset={offset}&start_time={iso_time}&end_time={iso_time}
+
+// Get real-time log stream
+WebSocket /ws/logs/?level={level}&source={source}
+
+// Get log analytics data
+GET /api/v1/logs/analytics/error-rate?timeRange={range}
+GET /api/v1/logs/analytics/by-source?timeRange={range}
+GET /api/v1/logs/analytics/top-errors?limit={count}&timeRange={range}
+
+// Get container logs (Docker)
+GET /api/v1/logs/docker/{container}?lines={count}
+
+// Get system health metrics
+GET /api/v1/logs/health
+```
+
+**Response Format**
+```typescript
+interface LogEntry {
+  id: string;
+  timestamp: string; // ISO 8601
+  level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  source: "django" | "docker" | "system" | "nginx";
+  module?: string; // Django module name
+  message: string;
+  metadata?: {
+    file?: string;
+    line?: number;
+    function?: string;
+    request_id?: string;
+    user_id?: string;
+    [key: string]: any;
+  };
+  user?: {
+    id: string;
+    email: string;
+  };
+}
+
+interface LogsResponse {
+  logs: LogEntry[];
+  total_count: number;
+  has_more: boolean;
+  next_offset?: number;
+}
+```
+
+#### Security & Access Control
+
+**Admin-Only Access**
+- Log viewing restricted to users with admin role
+- Supabase RLS policies enforce access control
+- Sensitive data (passwords, tokens) automatically redacted
+- Audit trail for log access activities
+
+**Data Privacy**
+- Personal data masking in logs
+- Configurable log retention periods
+- Secure log transmission (WSS/HTTPS only)
+- Optional log encryption at rest
+
+### 4.7 Remediation Tracking (MVP)
 
 #### Basic Features
 - **Status Updates**: Mark findings as fixed/risk accepted

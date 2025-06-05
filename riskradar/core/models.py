@@ -392,3 +392,51 @@ class UserProfile(models.Model):
         db_table = 'user_profile'
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
+
+class SystemLog(models.Model):
+    """System logs for monitoring application and infrastructure"""
+    
+    LOG_LEVELS = [
+        ('DEBUG', 'Debug'),
+        ('INFO', 'Info'),
+        ('WARNING', 'Warning'),
+        ('ERROR', 'Error'),
+        ('CRITICAL', 'Critical'),
+    ]
+    
+    LOG_SOURCES = [
+        ('django', 'Django Application'),
+        ('docker', 'Docker Container'),
+        ('system', 'System'),
+        ('nginx', 'Nginx'),
+    ]
+    
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    level = models.CharField(max_length=20, choices=LOG_LEVELS, db_index=True)
+    source = models.CharField(max_length=50, choices=LOG_SOURCES, db_index=True)
+    module = models.CharField(max_length=100, blank=True, null=True)
+    message = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+    user = models.ForeignKey(
+        'auth.User', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        db_index=True
+    )
+    request_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'system_logs'
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp']),
+            models.Index(fields=['level']),
+            models.Index(fields=['source']),
+            models.Index(fields=['user']),
+            models.Index(fields=['request_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.timestamp} [{self.level}] {self.source}: {self.message[:100]}"
