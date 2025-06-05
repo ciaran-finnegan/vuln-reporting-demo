@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     AssetType, AssetCategory, AssetSubtype, Asset, Vulnerability, Finding, BusinessGroup, SLAPolicy,
     RemediationCampaign, CampaignFinding, ScannerIntegration, FieldMapping,
-    SeverityMapping, ScannerUpload, AssetTag
+    SeverityMapping, ScannerUpload, AssetTag, SystemLog
 )
 from .forms import FieldMappingForm
 
@@ -55,3 +55,45 @@ admin.site.register(FieldMapping, FieldMappingAdmin)
 admin.site.register(SeverityMapping)
 admin.site.register(ScannerUpload)
 admin.site.register(AssetTag)
+
+@admin.register(SystemLog)
+class SystemLogAdmin(admin.ModelAdmin):
+    """Admin interface for system logs"""
+    
+    list_display = ['timestamp', 'level', 'source', 'module', 'user', 'message_preview']
+    list_filter = ['level', 'source', 'timestamp', 'user']
+    search_fields = ['message', 'module', 'request_id']
+    readonly_fields = ['timestamp', 'created_at', 'request_id']
+    date_hierarchy = 'timestamp'
+    ordering = ['-timestamp']
+    list_per_page = 50
+    
+    fieldsets = [
+        ('Log Information', {
+            'fields': ('timestamp', 'level', 'source', 'module', 'message')
+        }),
+        ('Context', {
+            'fields': ('user', 'request_id')
+        }),
+        ('Metadata', {
+            'fields': ('metadata',),
+            'classes': ('collapse',)
+        }),
+        ('System', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    ]
+    
+    def message_preview(self, obj):
+        """Show truncated message for list view"""
+        return obj.message[:100] + '...' if len(obj.message) > 100 else obj.message
+    message_preview.short_description = 'Message Preview'
+    
+    def has_add_permission(self, request):
+        """Disable manual log creation through admin"""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Make logs read-only"""
+        return False

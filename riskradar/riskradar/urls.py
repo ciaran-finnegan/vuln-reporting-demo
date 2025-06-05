@@ -16,8 +16,20 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from core.log_views import (
+    get_logs, get_log_analytics_error_rate, get_log_analytics_by_source,
+    get_log_analytics_top_errors, get_docker_logs, get_system_health
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),  # Include core app URLs for API endpoints
+    
+    # Log Management API Endpoints
+    path('api/v1/logs/', get_logs, name='get_logs'),
+    path('api/v1/logs/analytics/error-rate/', get_log_analytics_error_rate, name='log_analytics_error_rate'),
+    path('api/v1/logs/analytics/by-source/', get_log_analytics_by_source, name='log_analytics_by_source'),
+    path('api/v1/logs/analytics/top-errors/', get_log_analytics_top_errors, name='log_analytics_top_errors'),
+    path('api/v1/logs/docker/<str:container_name>/', get_docker_logs, name='docker_logs'),
+    path('api/v1/logs/health/', get_system_health, name='system_health'),
 ]

@@ -26,6 +26,7 @@ This document tracks implementation tasks aligned with the MVP Feature Matrix in
 |--------|----------|-------|-------------|
 | `feature/ui-dashboard` | **Medium** | 2 | Core UI pages (Dashboard, Assets, Vulnerabilities, Findings) |
 | `feature/ui-upload-page` | **Medium** | 2 | File upload interface with drag-and-drop |
+| `feature/log-management-system` | **Medium** | 2D | System monitoring & log management (backend + frontend) |
 | `feature/testing-deployment` | **Low** | 4 | Testing, documentation, production deployment |
 
 ### 📊 Branch Completion Summary
@@ -340,6 +341,50 @@ The file upload permissions issue has been permanently resolved through automate
 - [ ] **Enhanced dashboard analytics**
 - [ ] **Export functionality** (CSV)
 
+### Phase 2D: System Monitoring & Log Management (2-3 days) - **FOURTH PRIORITY**
+*Comprehensive log viewing and system monitoring for administrators*
+
+- [ ] **Backend Log Infrastructure** (1 day)
+  - [ ] Supabase `system_logs` table creation with proper indexes
+  - [ ] Custom Django log handler (`SupabaseLogHandler`) for real-time log streaming
+  - [ ] Enhanced Django settings with structured logging configuration
+  - [ ] Request correlation middleware for end-to-end tracing
+  - [ ] Log collection from Django, Docker containers, and system sources
+
+- [ ] **Django Log Management APIs** (1 day)
+  - [ ] `GET /api/v1/logs` - Filtered log retrieval with pagination
+  - [ ] `WebSocket /ws/logs/` - Real-time log streaming with filtering
+  - [ ] `GET /api/v1/logs/analytics/error-rate` - Error trending analytics
+  - [ ] `GET /api/v1/logs/analytics/by-source` - Log volume by source
+  - [ ] `GET /api/v1/logs/analytics/top-errors` - Most frequent errors
+  - [ ] `GET /api/v1/logs/docker/{container}` - Container log access
+  - [ ] `GET /api/v1/logs/health` - System health metrics
+  - [ ] Admin-only access controls with Supabase RLS policies
+
+- [ ] **Frontend Log Viewer (lovable.dev)** (1 day)
+  - [ ] **Log Viewer Page** (`/admin/logs`) with comprehensive filtering interface
+    - [ ] Filter bar: Log level, source, time range, search, real-time toggle
+    - [ ] Virtual scrolling log table with expandable rows
+    - [ ] Log level badges with color coding (ERROR=red, WARNING=orange, INFO=blue)
+    - [ ] Source icons and user linking
+    - [ ] Expandable log details sidebar with JSON metadata viewer
+  - [ ] **Log Analytics Dashboard** (`/admin/logs/analytics`)
+    - [ ] Error rate trend line chart with 24h timeframe
+    - [ ] Log distribution pie chart by source
+    - [ ] Top errors list with count and drill-down links
+    - [ ] System health metrics grid with trend indicators
+  - [ ] **Real-time Features**
+    - [ ] WebSocket integration for live log streaming
+    - [ ] Auto-scroll with pause-on-user-scroll functionality
+    - [ ] Connection status indicator and reconnection handling
+    - [ ] Rate limiting to prevent UI overwhelming
+
+- [ ] **Advanced Features** (Optional)
+  - [ ] Log retention and cleanup automation
+  - [ ] Export logs to CSV/JSON functionality
+  - [ ] Log alerting for critical errors
+  - [ ] Performance monitoring integration
+
 ---
 
 ## 🎯 PLANNED FEATURE: Enhanced SLA Management System (Phase 3)
@@ -640,6 +685,15 @@ Implement priority-based SLA management system inspired by Vulcan Cyber's approa
 - [ ] **Advanced RBAC**
 - [ ] **SSO integration**
 
+### System Monitoring & Observability
+- [ ] **System log management** (Phase 2D)
+- [ ] **Real-time log streaming**
+- [ ] **Log analytics and trending**
+- [ ] **Performance monitoring**
+- [ ] **System health dashboards**
+- [ ] **Error alerting and notifications**
+- [ ] **Container and infrastructure monitoring**
+
 ---
 
 ## 📊 Phase Completion Summary
@@ -657,6 +711,7 @@ Implement priority-based SLA management system inspired by Vulcan Cyber's approa
 ### 📋 Next Phases:
 - **Phase 2B**: Enhanced SLA System (backend + frontend)
 - **Phase 2C**: Reporting APIs
+- **Phase 2D**: System Monitoring & Log Management
 - **Phase 3**: Advanced Analytics & Dashboards
 - **Phase 4**: Additional Scanner Integrations
 
@@ -678,4 +733,4 @@ Implement priority-based SLA management system inspired by Vulcan Cyber's approa
 
 ---
 
-*Last Updated: 2025-01-03 - Backend 100% Complete (File Upload + Parsing Production Ready), Frontend Only Remaining* 
+*Last Updated: 2025-01-05 - Backend 100% Complete, System Monitoring & Log Management Feature Added for Phase 2D* 
