@@ -91,7 +91,24 @@ header.payload.signature
 
 Example token structure:
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNjQwOTk1MjAwLCJzdWIiOiJ1c2VyLWlkLTEyMyIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInJvbGUiOiJhdXRoZW50aWNhdGVkIn0.signature
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNjQwOTk1MjAwLCJzdWIiOiJ1c2VyLWlkLTEyMyIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInJvbGUiOiJhdXRoZW50aWNhdGVkIiwidXNlcl9tZXRhZGF0YSI6eyJpc19zdGFmZiI6dHJ1ZSwiaXNfc3VwZXJ1c2VyIjpmYWxzZX19.signature
+```
+
+**Decoded payload example for admin user:**
+```json
+{
+  "aud": "authenticated",
+  "exp": 1749130783,
+  "sub": "user-id-123",
+  "email": "admin@example.com",
+  "role": "authenticated",
+  "user_metadata": {
+    "is_staff": true,
+    "is_superuser": false,
+    "first_name": "Admin",
+    "last_name": "User"
+  }
+}
 ```
 
 The payload contains:
@@ -100,6 +117,11 @@ The payload contains:
 - `sub`: User ID
 - `email`: User email
 - `role`: User role
+- `user_metadata`: User metadata object containing:
+  - `is_staff`: Boolean - Grants admin access to system endpoints
+  - `is_superuser`: Boolean - Grants superuser privileges
+  - `first_name`: User's first name (optional)
+  - `last_name`: User's last name (optional)
 
 ## Token Validation
 
@@ -147,13 +169,45 @@ curl -H "Authorization: Bearer your-token" \
   "https://riskradar.dev.securitymetricshub.com/api/v1/auth/profile"
 ```
 
-**Response:**
+**Response for admin user:**
 ```json
 {
   "user": {
+    "id": 123,
+    "email": "admin@example.com",
+    "first_name": "Admin",
+    "last_name": "User",
+    "is_staff": true,
+    "is_superuser": false,
+    "date_joined": "2025-01-01T00:00:00Z"
+  },
+  "profile": {
+    "business_group": "Production",
+    "supabase_user_id": "user-id-123"
+  },
+  "permissions": {
+    "is_admin": true,
+    "can_upload": true,
+    "can_view_logs": true
+  }
+}
+```
+
+**Response for regular user:**
+```json
+{
+  "user": {
+    "id": 124,
     "email": "user@example.com",
+    "first_name": "Regular",
+    "last_name": "User",
     "is_staff": false,
-    "is_superuser": false
+    "is_superuser": false,
+    "date_joined": "2025-01-01T00:00:00Z"
+  },
+  "profile": {
+    "business_group": null,
+    "supabase_user_id": "user-id-124"
   },
   "permissions": {
     "is_admin": false,
@@ -223,7 +277,24 @@ curl -H "Authorization: Bearer your-token" \
 - Use different user with appropriate permissions
 - Log management endpoints require `is_staff=True` in Django
 
-#### 5. JWT Authentication Not Working (Fixed in v2.1)
+#### 5. Admin Permissions Not Working (Fixed in v2.2)
+**Previous Issue:**
+Users with valid JWT tokens containing `user_metadata.is_staff: true` were receiving 403 Forbidden errors on admin endpoints because admin permissions weren't being transferred to Django User model.
+
+**Resolution (January 2025):**
+Authentication backend now properly transfers admin permissions from JWT tokens:
+- Reads `user_metadata.is_staff` and `user_metadata.is_superuser` from JWT tokens
+- Transfers these flags to Django User model during user creation
+- Updates existing users when admin flags change in JWT token
+- All admin endpoints now work correctly with JWT authentication
+
+If you still experience permission issues:
+- Ensure your JWT token includes `user_metadata.is_staff: true` for admin access
+- Check that your token is properly formatted and not expired
+- Verify the token is sent in the `Authorization: Bearer {token}` header format
+- Test with `/api/v1/auth/profile` to confirm your admin status
+
+#### 6. JWT Authentication Not Working (Fixed in v2.1)
 **Previous Issue:**
 Log management endpoints were redirecting to `/accounts/login/` instead of accepting JWT tokens.
 

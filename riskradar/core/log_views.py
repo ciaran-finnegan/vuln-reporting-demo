@@ -121,7 +121,7 @@ def get_logs(request):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_log_analytics_error_rate(request):
-    """Get error rate trending data"""
+    """Get error rate trending data with level counts"""
     try:
         time_range = request.GET.get('timeRange', '24h')
         
@@ -159,6 +159,13 @@ def get_log_analytics_error_rate(request):
             total_count=Count('id')
         ).order_by('time_bucket')
         
+        # Get level counts for the chart
+        level_counts = SystemLog.objects.filter(
+            timestamp__gte=start_time
+        ).values('level').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
         # Combine error and total counts
         data_points = []
         total_dict = {item['time_bucket']: item['total_count'] for item in total_data}
@@ -178,11 +185,46 @@ def get_log_analytics_error_rate(request):
         
         return Response({
             'data': data_points,
+            'level_counts': list(level_counts),  # Add level counts for frontend
             'time_range': time_range
         })
         
     except Exception as e:
         logger.error(f"Error getting error rate data: {str(e)}", exc_info=True)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_log_analytics_by_level(request):
+    """Get log counts by level"""
+    try:
+        time_range = request.GET.get('timeRange', '24h')
+        
+        # Calculate time range
+        now = timezone.now()
+        if time_range == '1h':
+            start_time = now - timedelta(hours=1)
+        elif time_range == '24h':
+            start_time = now - timedelta(days=1)
+        elif time_range == '7d':
+            start_time = now - timedelta(days=7)
+        else:
+            start_time = now - timedelta(days=1)
+        
+        # Get log counts by level
+        level_data = SystemLog.objects.filter(
+            timestamp__gte=start_time
+        ).values('level').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        return Response({
+            'data': list(level_data),
+            'time_range': time_range
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting level data: {str(e)}", exc_info=True)
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
