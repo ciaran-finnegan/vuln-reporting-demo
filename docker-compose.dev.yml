@@ -5,11 +5,8 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - DEBUG=True
-      - DATABASE_URL=${DATABASE_URL}
-      - SECRET_KEY=${SECRET_KEY}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
+    env_file:
+      - .env
     volumes:
       - ./temp_uploads:/app/temp_uploads
       - ./staticfiles:/app/staticfiles
