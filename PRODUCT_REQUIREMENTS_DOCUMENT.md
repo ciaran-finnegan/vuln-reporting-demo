@@ -89,6 +89,15 @@ Risk Radar provides a vulnerability management platform with features designed t
 - **Multi-Tenancy**: Logical separation of business units
 - **Backup & Recovery**: Automated backup with point-in-time recovery
 
+### 📊 System Monitoring & Logs
+- **Centralised Log Management**: System, application, and container logs in unified interface
+- **Real-time Log Streaming**: Live log monitoring with WebSocket updates
+- **Advanced Log Filtering**: Filter by level, source, user, date range, and custom search
+- **Log Analytics**: Error trending, performance monitoring, and system health metrics
+- **Admin Log Access**: Secure admin-only access to sensitive system logs
+- **Request Correlation**: Track requests across services with correlation IDs
+- **Log Retention**: Automated cleanup with configurable retention policies
+
 ---
 
 ## MVP Feature Matrix
@@ -147,6 +156,13 @@ The following table outlines which features will be implemented in the MVP phase
 | | SSO integration | ❌ | ✅ | Phase 6 |
 | | REST API (minimal) | ✅ | | Upload & reports only |
 | | Full REST API | ❌ | ✅ | Phase 7 |
+| **System Monitoring** | | | | |
+| | Basic system logs | ✅ | | Django logging only |
+| | Centralised log management | ❌ | ✅ | Phase 3 |
+| | Real-time log streaming | ❌ | ✅ | Phase 3 |
+| | Log analytics & trending | ❌ | ✅ | Phase 4 |
+| | Advanced log filtering | ❌ | ✅ | Phase 3 |
+| | Request correlation | ❌ | ✅ | Phase 4 |
 | **UI/UX** | | | | |
 | | lovable.dev UI | ✅ | | Rapid development |
 | | Mobile responsive | ✅ | | Built-in with lovable |
@@ -332,6 +348,15 @@ POST   /api/v1/upload/nessus        # ✅ Upload & parse Nessus file (COMPLETE)
 GET    /api/v1/upload/history       # ✅ Upload history with filtering (COMPLETE)
 GET    /api/v1/upload/info          # ✅ Upload requirements and limits (COMPLETE)
 GET    /api/v1/status               # ✅ System health and status (COMPLETE)
+
+# Planned Log Management Operations
+GET    /api/v1/logs                 # Get filtered logs with pagination
+WS     /ws/logs/                    # Real-time log streaming
+GET    /api/v1/logs/analytics/error-rate  # Error rate trending
+GET    /api/v1/logs/analytics/by-source   # Logs by source breakdown
+GET    /api/v1/logs/analytics/top-errors  # Most frequent errors
+GET    /api/v1/logs/docker/{container}    # Container logs
+GET    /api/v1/logs/health          # System health metrics
 
 # Planned Complex Operations  
 POST   /api/v1/risk/calculate       # Recalculate risk scores
@@ -993,7 +1018,290 @@ The frontend will consume several API endpoints to display SLA information:
 
 This enhanced SLA system provides capability while maintaining simplicity for smaller organisations through the Global SLA Policy fallback.
 
-### 4.6 Remediation Tracking (MVP)
+### 4.6 System Monitoring & Log Management
+
+Risk Radar provides comprehensive system monitoring and log management capabilities for administrators to monitor system health, troubleshoot issues, and maintain operational visibility.
+
+#### Core Log Management Features
+
+**Centralised Log Collection**
+- **Multi-Source Integration**: Django application logs, Docker container logs, system logs, and nginx access logs
+- **Structured Logging**: JSON-formatted logs with consistent fields (timestamp, level, source, message, metadata)
+- **Real-time Processing**: Live log streaming with WebSocket connections for immediate visibility
+- **Persistent Storage**: Logs stored in Supabase with proper indexing for fast retrieval
+
+**Advanced Filtering & Search**
+- **Log Level Filtering**: Filter by DEBUG, INFO, WARNING, ERROR, CRITICAL levels
+- **Source Filtering**: Filter by django, docker, system, nginx sources
+- **Time Range Selection**: Custom date/time range picker with preset options (Last hour, Today, Last 7 days)
+- **Text Search**: Full-text search across log messages with highlighting
+- **User Filtering**: Filter logs by specific user activities (admin only)
+- **Request Correlation**: Group related logs by request ID for end-to-end tracing
+
+**Log Analytics Dashboard**
+- **Error Rate Trending**: Charts showing error rates over time
+- **Log Volume Metrics**: Logs per minute/hour by source and level
+- **Top Errors**: Most frequent error messages with counts
+- **Performance Monitoring**: Response time tracking from request logs
+- **System Health**: Container status and resource usage indicators
+
+#### Frontend UI Components (lovable.dev Implementation)
+
+**Log Viewer Page (`/admin/logs`)**
+```typescript
+interface LogViewerPage {
+  layout: "admin-dashboard";
+  components: [
+    {
+      type: "FilterBar";
+      position: "top";
+      elements: [
+        {
+          type: "dropdown";
+          label: "Log Level";
+          options: ["ALL", "ERROR", "WARNING", "INFO", "DEBUG"];
+          defaultValue: "ALL";
+        },
+        {
+          type: "dropdown"; 
+          label: "Source";
+          options: ["ALL", "django", "docker", "system", "nginx"];
+          defaultValue: "ALL";
+        },
+        {
+          type: "dateRangePicker";
+          label: "Time Range";
+          presets: ["Last hour", "Today", "Last 7 days", "Custom"];
+          defaultValue: "Last hour";
+        },
+        {
+          type: "searchInput";
+          placeholder: "Search log messages...";
+          icon: "search";
+        },
+        {
+          type: "toggle";
+          label: "Real-time";
+          description: "Auto-update with new logs";
+        }
+      ];
+    },
+    {
+      type: "LogTable";
+      position: "main";
+      features: [
+        "virtualScrolling",
+        "autoRefresh", 
+        "rowHighlighting",
+        "expandableRows"
+      ];
+      columns: [
+        {
+          field: "timestamp";
+          label: "Time";
+          width: "180px";
+          format: "datetime";
+          sortable: true;
+        },
+        {
+          field: "level";
+          label: "Level";
+          width: "80px";
+          render: "LogLevelBadge";
+          sortable: true;
+        },
+        {
+          field: "source";
+          label: "Source";
+          width: "100px";
+          render: "SourceIcon";
+          sortable: true;
+        },
+        {
+          field: "module";
+          label: "Module";
+          width: "150px";
+          sortable: true;
+        },
+        {
+          field: "message";
+          label: "Message";
+          width: "flexible";
+          render: "ExpandableText";
+          searchHighlight: true;
+        },
+        {
+          field: "user";
+          label: "User";
+          width: "120px";
+          render: "UserLink";
+        }
+      ];
+    },
+    {
+      type: "LogDetailsSidebar";
+      position: "right";
+      trigger: "rowClick";
+      sections: [
+        {
+          title: "Log Details";
+          fields: ["timestamp", "level", "source", "module", "message"];
+        },
+        {
+          title: "Context";
+          fields: ["user_id", "request_id", "file", "line_number"];
+        },
+        {
+          title: "Metadata";
+          render: "JsonViewer";
+          field: "metadata";
+        }
+      ];
+    }
+  ];
+  permissions: ["admin"];
+}
+```
+
+**Log Level Badge Component**
+```typescript
+interface LogLevelBadge {
+  level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  styling: {
+    DEBUG: { bg: "gray-100", text: "gray-600", border: "gray-300" };
+    INFO: { bg: "blue-100", text: "blue-600", border: "blue-300" };
+    WARNING: { bg: "yellow-100", text: "yellow-600", border: "yellow-300" };
+    ERROR: { bg: "red-100", text: "red-600", border: "red-300" };
+    CRITICAL: { bg: "red-600", text: "white", border: "red-700" };
+  };
+  size: "sm" | "md";
+  showIcon: boolean;
+}
+```
+
+**Real-time Log Stream Component**
+```typescript
+interface RealTimeLogStream {
+  websocketUrl: "/ws/logs/";
+  maxBuffer: 1000; // Maximum logs to keep in memory
+  autoScroll: boolean;
+  pauseOnUserScroll: boolean;
+  reconnectOnFailure: true;
+  showConnectionStatus: true;
+  rateLimit: "10/second"; // Prevent overwhelming the UI
+}
+```
+
+**Log Analytics Dashboard (`/admin/logs/analytics`)**
+```typescript
+interface LogAnalyticsDashboard {
+  layout: "grid-2x2";
+  components: [
+    {
+      type: "LineChart";
+      title: "Error Rate Trend";
+      dataSource: "/api/v1/logs/analytics/error-rate";
+      xAxis: "time";
+      yAxis: "error_count";
+      timeRange: "24h";
+      refreshInterval: "5m";
+    },
+    {
+      type: "PieChart";
+      title: "Logs by Source";
+      dataSource: "/api/v1/logs/analytics/by-source";
+      refreshInterval: "5m";
+    },
+    {
+      type: "TopErrorsList";
+      title: "Most Frequent Errors";
+      dataSource: "/api/v1/logs/analytics/top-errors";
+      showCount: 10;
+      linkToLogs: true;
+    },
+    {
+      type: "MetricsGrid";
+      title: "System Health";
+      metrics: [
+        { label: "Total Logs (24h)", value: "12,486", trend: "+5%" },
+        { label: "Error Rate", value: "0.8%", trend: "-12%" },
+        { label: "Avg Response Time", value: "245ms", trend: "+8%" },
+        { label: "Active Users", value: "23", trend: "stable" }
+      ];
+    }
+  ];
+  permissions: ["admin"];
+}
+```
+
+#### Backend API Endpoints
+
+**Log Retrieval APIs**
+```typescript
+// Get filtered logs with pagination
+GET /api/v1/logs?level={level}&source={source}&search={query}&limit={limit}&offset={offset}&start_time={iso_time}&end_time={iso_time}
+
+// Get real-time log stream
+WebSocket /ws/logs/?level={level}&source={source}
+
+// Get log analytics data
+GET /api/v1/logs/analytics/error-rate?timeRange={range}
+GET /api/v1/logs/analytics/by-source?timeRange={range}
+GET /api/v1/logs/analytics/top-errors?limit={count}&timeRange={range}
+
+// Get container logs (Docker)
+GET /api/v1/logs/docker/{container}?lines={count}
+
+// Get system health metrics
+GET /api/v1/logs/health
+```
+
+**Response Format**
+```typescript
+interface LogEntry {
+  id: string;
+  timestamp: string; // ISO 8601
+  level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  source: "django" | "docker" | "system" | "nginx";
+  module?: string; // Django module name
+  message: string;
+  metadata?: {
+    file?: string;
+    line?: number;
+    function?: string;
+    request_id?: string;
+    user_id?: string;
+    [key: string]: any;
+  };
+  user?: {
+    id: string;
+    email: string;
+  };
+}
+
+interface LogsResponse {
+  logs: LogEntry[];
+  total_count: number;
+  has_more: boolean;
+  next_offset?: number;
+}
+```
+
+#### Security & Access Control
+
+**Admin-Only Access**
+- Log viewing restricted to users with admin role
+- Supabase RLS policies enforce access control
+- Sensitive data (passwords, tokens) automatically redacted
+- Audit trail for log access activities
+
+**Data Privacy**
+- Personal data masking in logs
+- Configurable log retention periods
+- Secure log transmission (WSS/HTTPS only)
+- Optional log encryption at rest
+
+### 4.7 Remediation Tracking (MVP)
 
 #### Basic Features
 - **Status Updates**: Mark findings as fixed/risk accepted
