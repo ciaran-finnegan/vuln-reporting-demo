@@ -301,10 +301,41 @@ def get_log_analytics_top_errors(request):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_docker_logs(request, container_name):
-    """Get Docker container logs"""
+    """Get Docker container logs (if enabled via ENABLE_DOCKER_LOGS env var)"""
     try:
         lines = int(request.GET.get('lines', 100))
         lines = min(lines, 1000)  # Cap at 1000 lines for performance
+        
+        # Check if Docker logs are enabled via environment variable
+        import os
+        docker_logs_enabled = os.getenv('ENABLE_DOCKER_LOGS', 'false').lower() == 'true'
+        
+        if not docker_logs_enabled:
+            # Return informative message when Docker logs are disabled
+            now = timezone.now()
+            disabled_logs = [
+                {
+                    'timestamp': now.isoformat(),
+                    'message': f'[INFO] Docker logs access is disabled'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=30)).isoformat(),
+                    'message': f'[INFO] Set ENABLE_DOCKER_LOGS=true in environment to enable'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=60)).isoformat(),
+                    'message': f'[INFO] Container: {container_name}'
+                }
+            ]
+            
+            return Response({
+                'container': container_name,
+                'logs': disabled_logs,
+                'total_lines': len(disabled_logs),
+                'lines_requested': lines,
+                'docker_logs_enabled': False,
+                'message': 'Docker logs disabled via ENABLE_DOCKER_LOGS environment variable'
+            })
         
         # Use Docker API to get container logs
         try:
@@ -331,7 +362,8 @@ def get_docker_logs(request, container_name):
                 'logs': log_lines[-lines:],  # Return last N lines
                 'total_lines': len(log_lines),
                 'lines_requested': lines,
-                'container_status': container.status
+                'container_status': container.status,
+                'docker_logs_enabled': True
             })
             
         except docker.errors.NotFound:
