@@ -152,31 +152,44 @@ jobs:
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
           echo "SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}" >> .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
           echo "" >> .env
           echo "# Logging Configuration" >> .env
           echo "LOG_LEVEL=INFO" >> .env
           echo "" >> .env
-          echo "# Docker Logs Configuration (Production - Always Disabled)" >> .env
-          echo "ENABLE_DOCKER_LOGS=false" >> .env
+          echo "# Docker Logs Configuration (Production - Use with Caution)" >> .env
+          echo "ENABLE_DOCKER_LOGS=${{ secrets.ENABLE_DOCKER_LOGS || 'false' }}" >> .env
           
           # Pull latest image
           docker pull ${{ needs.build-and-push.outputs.image }}
           
-          # Stop existing containers
+          # Stop existing containers (handling both regular and docker-logs configurations)
           docker-compose down
+          docker-compose -f docker-compose.yml -f docker-compose.docker-logs.yml down 2>/dev/null || true
           
           # Update docker-compose.yml to use new image
           sed -i 's|build: .|image: ${{ needs.build-and-push.outputs.image }}|' docker-compose.yml
           
-          # Start new containers
-          docker-compose up -d
+          # Start new containers (with Docker logs support if enabled)
+          if [ "${{ secrets.ENABLE_DOCKER_LOGS }}" = "true" ]; then
+            echo "🐳 [PRODUCTION WARNING] Enabling Docker logs access - Security Risk!"
+            docker-compose -f docker-compose.yml -f docker-compose.docker-logs.yml up -d
+          else
+            echo "🐳 Starting containers without Docker logs access"
+            docker-compose up -d
+          fi
           
           # Run migrations
-          docker-compose exec -T web python manage.py migrate
+          COMPOSE_CMD="docker-compose"
+          if [ "${{ secrets.ENABLE_DOCKER_LOGS }}" = "true" ]; then
+            COMPOSE_CMD="docker-compose -f docker-compose.yml -f docker-compose.docker-logs.yml"
+          fi
+          
+          $COMPOSE_CMD exec -T web python manage.py migrate
           
           # Collect static files
-          docker-compose exec -T --user root web python manage.py collectstatic --noinput
-          docker-compose exec -T --user root web chown -R django:django /app/staticfiles
+          $COMPOSE_CMD exec -T --user root web python manage.py collectstatic --noinput
+          $COMPOSE_CMD exec -T --user root web chown -R django:django /app/staticfiles
           
           # Clean up old images
           docker image prune -f
@@ -227,6 +240,7 @@ jobs:
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
           echo "SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}" >> .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
           echo "" >> .env
           echo "# Logging Configuration" >> .env
           echo "LOG_LEVEL=INFO" >> .env
