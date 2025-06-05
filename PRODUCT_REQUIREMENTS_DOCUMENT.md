@@ -89,6 +89,14 @@ Risk Radar provides a vulnerability management platform with features designed t
 - **Multi-Tenancy**: Logical separation of business units
 - **Backup & Recovery**: Automated backup with point-in-time recovery
 
+### 📖 Developer Experience & API Documentation
+- **Interactive Documentation**: Swagger/OpenAPI specification with live testing
+- **Postman Collections**: Ready-to-import API testing collections
+- **Developer Portal**: Comprehensive API guides and examples
+- **Code Examples**: Python, JavaScript, and cURL integration examples
+- **Authentication Guides**: JWT token setup and usage documentation
+- **Error Handling**: Standardised error responses and troubleshooting guides
+
 ### 📊 System Monitoring & Logs
 - **Centralised Log Management**: System, application, and container logs in unified interface
 - **Real-time Log Streaming**: Live log monitoring with WebSocket updates
@@ -168,6 +176,12 @@ The following table outlines which features will be implemented in the MVP phase
 | | Mobile responsive | ✅ | | Built-in with lovable |
 | | Dark mode | ❌ | ✅ | Future enhancement |
 | | Custom branding | ❌ | ✅ | Enterprise feature |
+| **Developer Experience** | | | | |
+| | Interactive API documentation | ✅ | | Swagger/OpenAPI spec |
+| | Postman collections | ✅ | | Ready-to-import testing |
+| | Code examples | ✅ | | Python, JS, cURL samples |
+| | Authentication guides | ✅ | | JWT token setup |
+| | Developer portal | ❌ | ✅ | Advanced documentation |
 
 ### MVP Success Criteria
 The MVP will be considered successful when it can:
@@ -179,6 +193,7 @@ The MVP will be considered successful when it can:
 6. ✅ Support business groups for organisational context
 7. ✅ Provide basic user access control
 8. ✅ Export data for external reporting
+9. ✅ Provide comprehensive API documentation for developers
 
 ---
 
@@ -305,6 +320,143 @@ The file upload system is positioned for rapid frontend development:
 - **Statistics Dashboard**: Processing statistics for analytics widgets
 
 This production-ready upload and parsing system eliminates the need for complex backend development, allowing frontend teams to focus on creating user experiences while leveraging data processing capabilities.
+
+---
+
+## Developer Experience & API Documentation (Production Ready)
+
+Risk Radar provides a comprehensive developer experience with multiple documentation formats and integration tools to make API consumption simple and efficient.
+
+### API Documentation System
+
+**Interactive Documentation**
+- **Swagger/OpenAPI Specification**: Auto-generated from Django code with live testing capability
+- **Interactive API Explorer**: Test endpoints directly from documentation browser
+- **Request/Response Examples**: Complete examples for all endpoints
+- **Authentication Testing**: Built-in JWT token testing interface
+- **Schema Validation**: Real-time request/response validation
+
+**Multi-Format Documentation**
+- **Written Guides**: Comprehensive developer documentation in `/docs/api/`
+- **Postman Collections**: Ready-to-import collections with pre-configured requests
+- **Code Examples**: Integration examples in Python, JavaScript, and cURL
+- **Authentication Guides**: Step-by-step JWT token setup and usage
+
+### Developer Tools & Resources
+
+**Postman Integration**
+- **Complete API Collection**: All endpoints with examples and tests
+- **Environment Variables**: Pre-configured for production and development
+- **Automated Testing**: Built-in tests for response validation
+- **Authentication Setup**: JWT token configuration examples
+- **Error Scenarios**: Test cases for error handling validation
+
+**Code Examples Library**
+- **Python Client**: Complete SDK with error handling and retry logic
+- **JavaScript Integration**: Frontend integration examples
+- **cURL Scripts**: Command-line testing and automation examples
+- **Authentication Flows**: Token acquisition and refresh examples
+
+**Documentation Portal Structure**
+```
+/docs/api/
+├── api-guide.md              # Complete developer guide
+├── authentication.md         # JWT token setup and usage
+├── risk-radar-api.postman_collection.json  # Postman collection
+├── risk-radar-api.openapi.yml             # OpenAPI specification
+└── examples/
+    ├── python-client.py      # Python SDK example
+    ├── javascript-client.js  # JavaScript integration
+    └── curl-examples.sh      # Command-line examples
+```
+
+### API Endpoints Documentation
+
+**Live Interactive Documentation**
+- **Production**: `https://riskradar.dev.securitymetricshub.com/api/docs/`
+- **Alternative Format**: `https://riskradar.dev.securitymetricshub.com/api/redoc/`
+- **OpenAPI Schema**: `https://riskradar.dev.securitymetricshub.com/api/schema/`
+
+**Core API Endpoints**
+```bash
+# File Upload & Management
+POST   /api/v1/upload/nessus        # Upload Nessus files
+GET    /api/v1/upload/history       # Upload audit trail
+GET    /api/v1/upload/info          # Upload requirements
+
+# Authentication & User Management
+GET    /api/v1/auth/status          # Check authentication
+GET    /api/v1/auth/profile         # User profile & permissions
+
+# System Monitoring (Admin Only)
+GET    /api/v1/logs/                # System logs with filtering
+GET    /api/v1/logs/analytics/      # Log analytics & trends
+GET    /api/v1/logs/health/         # System health metrics
+
+# System Status
+GET    /api/v1/status               # API health check
+```
+
+### Developer Support Features
+
+**Error Handling & Debugging**
+- **Standardised Error Responses**: Consistent JSON error format across all endpoints
+- **HTTP Status Codes**: Proper status codes for all scenarios
+- **Error Documentation**: Common errors with solutions
+- **Debugging Headers**: Request correlation IDs for troubleshooting
+
+**Rate Limiting & Performance**
+- **Documented Limits**: Clear rate limits for each endpoint type
+- **Performance Guidelines**: Best practices for high-volume usage
+- **Pagination Support**: Efficient data retrieval for large datasets
+- **Caching Headers**: Proper cache control for optimal performance
+
+**Authentication & Security**
+- **JWT Token Documentation**: Complete token lifecycle management
+- **Security Best Practices**: Token storage and refresh guidelines
+- **CORS Configuration**: Cross-origin request setup
+- **API Versioning**: Forward compatibility guidelines
+
+### Integration Examples
+
+**Quick Start Integration**
+```python
+# Python client example
+from risk_radar_client import RiskRadarClient
+
+client = RiskRadarClient(
+    base_url='https://riskradar.dev.securitymetricshub.com',
+    token='your-jwt-token'
+)
+
+# Upload a file
+result = client.upload_nessus_file('scan.nessus')
+print(f"Processed: {result['statistics']}")
+
+# Get upload history
+history = client.get_upload_history()
+```
+
+**Frontend Integration**
+```javascript
+// JavaScript/React integration
+const uploadFile = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch('/api/v1/upload/nessus', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+  
+  return response.json();
+};
+```
+
+This comprehensive developer experience ensures easy API adoption and reduces integration time for development teams.
 
 ---
 

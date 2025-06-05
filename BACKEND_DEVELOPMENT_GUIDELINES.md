@@ -123,6 +123,9 @@
 ### 6. Documentation
 - Update architecture and todo docs if you make any structural changes.
 - Document any new endpoints or models in the appropriate section of the architecture doc.
+- Use concise professional language with british english spelling
+- Do not use unnecessary words, particularly adjectives, for example words like the following should rarely be required 'advanced, enhanced, robust, enterprise-grade', these are just examples
+- Do not use em dashes, use correct British English grammar and punctuation
 
 ### 7. Script and Utility File Organisation
 - **ALL scripts, utilities, and test files MUST be placed in the `/commands` directory**

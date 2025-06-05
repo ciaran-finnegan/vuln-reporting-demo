@@ -1,0 +1,460 @@
+{
+	"info": {
+		"_postman_id": "risk-radar-api-collection",
+		"name": "Risk Radar API Collection",
+		"description": "Complete API testing collection for Risk Radar vulnerability management platform",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Get Auth Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "status"]
+						},
+						"description": "Check authentication status (works with or without token)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "profile"]
+						},
+						"description": "Get current user profile and permissions (requires authentication)"
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication and user management endpoints"
+		},
+		{
+			"name": "File Upload & Management",
+			"item": [
+				{
+					"name": "Upload Nessus File",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text",
+								"disabled": true,
+								"description": "Optional - enables user tracking"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Select a .nessus file to upload"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/upload/nessus?force_reimport=false",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "upload", "nessus"],
+							"query": [
+								{
+									"key": "force_reimport",
+									"value": "false",
+									"description": "Set to 'true' to bypass duplicate detection"
+								}
+							]
+						},
+						"description": "Upload and process a Nessus .nessus file"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Nessus File (Force Reimport)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/upload/nessus?force_reimport=true",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "upload", "nessus"],
+							"query": [
+								{
+									"key": "force_reimport",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Upload file bypassing duplicate detection"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Upload History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/upload/history?limit=50&offset=0",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "upload", "history"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "Number of records (max 200)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Skip this many records"
+								},
+								{
+									"key": "status",
+									"value": "completed",
+									"disabled": true,
+									"description": "Filter by status: pending, processing, completed, failed"
+								},
+								{
+									"key": "integration",
+									"value": "Nessus",
+									"disabled": true,
+									"description": "Filter by integration name"
+								}
+							]
+						},
+						"description": "Get upload history with optional filtering"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Upload Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/upload/info",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "upload", "info"]
+						},
+						"description": "Get file upload requirements and limits"
+					},
+					"response": []
+				}
+			],
+			"description": "File upload and management endpoints"
+		},
+		{
+			"name": "System Status",
+			"item": [
+				{
+					"name": "API Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "status"]
+						},
+						"description": "Check API health and available endpoints"
+					},
+					"response": []
+				}
+			],
+			"description": "System health and status endpoints"
+		},
+		{
+			"name": "Log Management (Admin Only)",
+			"item": [
+				{
+					"name": "Get System Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/?level=ERROR&source=django&limit=50&offset=0",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", ""],
+							"query": [
+								{
+									"key": "level",
+									"value": "ERROR",
+									"description": "Filter by level: DEBUG, INFO, WARNING, ERROR, CRITICAL, ALL"
+								},
+								{
+									"key": "source",
+									"value": "django",
+									"description": "Filter by source: django, docker, system, nginx, ALL"
+								},
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "Number of logs to return"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Skip this many logs"
+								},
+								{
+									"key": "search",
+									"value": "error",
+									"disabled": true,
+									"description": "Search in log messages"
+								},
+								{
+									"key": "start_time",
+									"value": "2025-01-01T00:00:00Z",
+									"disabled": true,
+									"description": "Start time filter (ISO format)"
+								},
+								{
+									"key": "end_time",
+									"value": "2025-01-02T00:00:00Z",
+									"disabled": true,
+									"description": "End time filter (ISO format)"
+								}
+							]
+						},
+						"description": "Get filtered system logs (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Error Rate Analytics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/analytics/error-rate/?timeRange=24h",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "analytics", "error-rate", ""],
+							"query": [
+								{
+									"key": "timeRange",
+									"value": "24h",
+									"description": "Time range: 1h, 24h, 7d"
+								}
+							]
+						},
+						"description": "Get error rate trending data (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Logs by Source",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/analytics/by-source/?timeRange=24h",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "analytics", "by-source", ""],
+							"query": [
+								{
+									"key": "timeRange",
+									"value": "24h"
+								}
+							]
+						},
+						"description": "Get log distribution by source (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Top Errors",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/analytics/top-errors/?limit=10&timeRange=24h",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "analytics", "top-errors", ""],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of top errors to return"
+								},
+								{
+									"key": "timeRange",
+									"value": "24h"
+								}
+							]
+						},
+						"description": "Get most frequent error messages (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Docker Container Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/docker/riskradar-web/?lines=100",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "docker", "riskradar-web", ""],
+							"query": [
+								{
+									"key": "lines",
+									"value": "100",
+									"description": "Number of log lines to return"
+								}
+							]
+						},
+						"description": "Get Docker container logs (admin only)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get System Health",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/logs/health/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "logs", "health", ""]
+						},
+						"description": "Get system health metrics (admin only)"
+					},
+					"response": []
+				}
+			],
+			"description": "Log management and analytics endpoints (requires admin privileges)"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-set content type for file uploads",
+					"if (pm.request.body && pm.request.body.mode === 'formdata') {",
+					"    pm.request.headers.upsert({key: 'Content-Type', value: 'multipart/form-data'});",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Basic response validation",
+					"pm.test('Response status code is successful', function () {",
+					"    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]);",
+					"});",
+					"",
+					"pm.test('Response time is acceptable', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(5000);",
+					"});",
+					"",
+					"// Parse JSON response if available",
+					"if (pm.response.headers.get('Content-Type') && pm.response.headers.get('Content-Type').includes('application/json')) {",
+					"    pm.test('Response is valid JSON', function () {",
+					"        pm.response.to.have.jsonBody();",
+					"    });",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://riskradar.dev.securitymetricshub.com",
+			"type": "string",
+			"description": "Base URL for the Risk Radar API"
+		},
+		{
+			"key": "jwt_token",
+			"value": "your-supabase-jwt-token-here",
+			"type": "string",
+			"description": "Supabase JWT token for authentication (get from browser dev tools after login)"
+		}
+	]
+} 
