@@ -202,7 +202,12 @@ LOGGING = {
         },
         'core': {
             'handlers': ['console', 'supabase'],
-            'level': LOG_LEVEL,
+            'level': 'DEBUG',  # Enable DEBUG logging for core app
+            'propagate': False,
+        },
+        'core.authentication': {
+            'handlers': ['console'],  # Don't log auth to database
+            'level': 'DEBUG',  # Enable DEBUG logging for authentication
             'propagate': False,
         },
         'django.db.backends': {
