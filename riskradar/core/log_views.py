@@ -301,12 +301,12 @@ def get_log_analytics_top_errors(request):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_docker_logs(request, container_name):
-    """Get Docker container logs with graceful fallback"""
+    """Get Docker container logs"""
     try:
         lines = int(request.GET.get('lines', 100))
         lines = min(lines, 1000)  # Cap at 1000 lines for performance
         
-        # Try to use Docker API to get container logs
+        # Use Docker API to get container logs
         try:
             client = docker.from_env()
             container = client.containers.get(container_name)
@@ -330,127 +330,19 @@ def get_docker_logs(request, container_name):
                 'container': container_name,
                 'logs': log_lines[-lines:],  # Return last N lines
                 'total_lines': len(log_lines),
-                'source': 'docker_api'
+                'lines_requested': lines,
+                'container_status': container.status
             })
             
         except docker.errors.NotFound:
-            # Container not found - return informative message
-            now = timezone.now()
-            fallback_logs = [
-                {
-                    'timestamp': now.isoformat(),
-                    'message': f'[INFO] Container {container_name} not found in Docker environment'
-                },
-                {
-                    'timestamp': now.isoformat(),
-                    'message': f'[INFO] Available containers may have different names in production'
-                }
-            ]
-            
-            return Response({
-                'container': container_name,
-                'logs': fallback_logs,
-                'total_lines': len(fallback_logs),
-                'source': 'fallback',
-                'message': 'Container not found'
-            })
-            
-        except (docker.errors.DockerException, Exception) as docker_error:
-            # Docker API not available (common in containerized environments)
-            now = timezone.now()
-            
-            # Provide realistic fallback logs based on container name
-            if 'web' in container_name.lower():
-                fallback_logs = [
-                    {
-                        'timestamp': now.isoformat(),
-                        'message': '[INFO] Django application container logs'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=30)).isoformat(),
-                        'message': '[INFO] Docker logs unavailable - Django running in containerized environment'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=60)).isoformat(),
-                        'message': '[INFO] Container started successfully'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=90)).isoformat(),
-                        'message': '[INFO] Database connection established'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=120)).isoformat(),
-                        'message': '[INFO] Static files collected'
-                    }
-                ]
-            elif 'nginx' in container_name.lower():
-                fallback_logs = [
-                    {
-                        'timestamp': now.isoformat(),
-                        'message': '[INFO] Nginx reverse proxy logs'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=30)).isoformat(),
-                        'message': '[INFO] Docker logs unavailable - Nginx running in containerized environment'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=60)).isoformat(),
-                        'message': '[INFO] SSL certificates loaded'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=90)).isoformat(),
-                        'message': '[INFO] Reverse proxy configuration active'
-                    }
-                ]
-            else:
-                fallback_logs = [
-                    {
-                        'timestamp': now.isoformat(),
-                        'message': f'[INFO] Docker logs for {container_name} unavailable'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=30)).isoformat(),
-                        'message': '[INFO] Django container cannot access Docker socket in production'
-                    },
-                    {
-                        'timestamp': (now - timedelta(seconds=60)).isoformat(),
-                        'message': '[INFO] This is expected behavior in containerized deployments'
-                    }
-                ]
-            
-            logger.info(f"Docker API unavailable for container {container_name}: {str(docker_error)}")
-            
-            return Response({
-                'container': container_name,
-                'logs': fallback_logs[-lines:],  # Return last N lines
-                'total_lines': len(fallback_logs),
-                'source': 'fallback',
-                'message': 'Docker API unavailable - showing fallback logs'
-            })
+            return Response({'error': f'Container {container_name} not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as docker_error:
+            logger.error(f"Docker API error for container {container_name}: {str(docker_error)}")
+            return Response({'error': f'Docker error: {str(docker_error)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     except Exception as e:
         logger.error(f"Error getting Docker logs: {str(e)}", exc_info=True)
-        
-        # Provide error fallback
-        now = timezone.now()
-        error_logs = [
-            {
-                'timestamp': now.isoformat(),
-                'message': f'[ERROR] Failed to retrieve logs for {container_name}'
-            },
-            {
-                'timestamp': now.isoformat(),
-                'message': f'[ERROR] {str(e)}'
-            }
-        ]
-        
-        return Response({
-            'container': container_name,
-            'logs': error_logs,
-            'total_lines': len(error_logs),
-            'source': 'error',
-            'message': str(e)
-        })
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
