@@ -18,8 +18,49 @@ import subprocess
 import docker
 
 from .models import SystemLog
+import re
 
 logger = logging.getLogger(__name__)
+
+def clean_log_message(message):
+    """
+    Clean log message by removing redundant timestamp, level, and source information
+    that's already displayed in separate columns.
+    
+    Example input: "2025-06-06 01:28:21.097 ERROR django.request Internal Server Error"
+    Example output: "Internal Server Error"
+    """
+    if not message:
+        return message
+    
+    # Pattern to match: YYYY-MM-DD HH:MM:SS.nnn LEVEL source.module actual_message
+    # This covers Django log format and similar structured log formats
+    pattern = r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+[A-Z]+\s+[\w\.]+(:\s*|\s+)(.*)'
+    match = re.match(pattern, message)
+    
+    if match:
+        # Return just the actual message part
+        cleaned = match.group(2).strip()
+        return cleaned if cleaned else message
+    
+    # Also handle simpler format: [LEVEL] source: message
+    pattern2 = r'^\[?[A-Z]+\]?\s*[\w\.]+:\s*(.*)'
+    match2 = re.match(pattern2, message)
+    
+    if match2:
+        cleaned = match2.group(1).strip()
+        return cleaned if cleaned else message
+    
+    # Also handle: LEVEL source message (without colon)
+    pattern3 = r'^[A-Z]+\s+[\w\.]+\s+(.*)'
+    match3 = re.match(pattern3, message)
+    
+    if match3:
+        cleaned = match3.group(1).strip()
+        return cleaned if cleaned else message
+    
+    # If no pattern matches, return original message
+    return message
 
 class IsAdminUser(BasePermission):
     """
@@ -95,7 +136,7 @@ def get_logs(request):
                 'level': log.level,
                 'source': log.source,
                 'module': log.module,
-                'message': log.message,
+                'message': clean_log_message(log.message),
                 'metadata': log.metadata,
                 'request_id': log.request_id,
                 'user': {
@@ -288,8 +329,16 @@ def get_log_analytics_top_errors(request):
             count=Count('id')
         ).order_by('-count')[:limit]
         
+        # Clean the error messages
+        cleaned_errors = []
+        for error in top_errors:
+            cleaned_errors.append({
+                'message': clean_log_message(error['message']),
+                'count': error['count']
+            })
+        
         return Response({
-            'data': list(top_errors),
+            'data': cleaned_errors,
             'time_range': time_range,
             'limit': limit
         })
