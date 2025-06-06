@@ -29,15 +29,17 @@ ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=riskradar.settings
 ENV PORT=8000
 
-# Install runtime system dependencies
+# Install runtime system dependencies including Docker CLI
 RUN apt-get update && apt-get install -y \
     libpq5 \
     curl \
+    docker.io \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create non-root user for security
-RUN groupadd -r django && useradd -r -g django django
+# Create non-root user for security and add to docker group
+RUN groupadd -r django && useradd -r -g django django \
+    && usermod -aG docker django
 
 # Create directories
 RUN mkdir -p /app/staticfiles /app/media /app/temp_uploads

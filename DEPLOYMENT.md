@@ -310,6 +310,7 @@ Go to your repository → Settings → Environments
 | `SUPABASE_URL` | `https://jfcpfoehtcldmappkdsm.supabase.co` | Your Supabase URL |
 | `SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase anonymous key |
 | `SUPABASE_JWT_SECRET` | `olC5YZLARU6eszH9xFwIO02RvCjH...` | Your Supabase JWT secret |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase service role key (for user management commands) |
 
 **🗑️ REMOVED SECRETS (no longer needed):**
 These secrets are no longer required as settings are hardcoded in Django:
@@ -318,7 +319,7 @@ These secrets are no longer required as settings are hardcoded in Django:
 - ~~POSTGRES_PASSWORD~~ → Uses DATABASE_URL
 - ~~DB_HOST~~ → Uses DATABASE_URL
 - ~~DB_PASSWORD~~ → Uses DATABASE_URL
-- ~~SUPABASE_SERVICE_ROLE_KEY~~ → Not used in runtime
+
 - ~~EMAIL_HOST/PORT/USER/PASSWORD~~ → Email not implemented in MVP
 - ~~CORS_ALLOWED_ORIGINS~~ → Hardcoded in Django settings
 - ~~LOG_LEVEL~~ → Hardcoded to INFO
@@ -362,6 +363,7 @@ These secrets are no longer required as settings are hardcoded in Django:
 | `SUPABASE_URL` | `https://jfcpfoehtcldmappkdsm.supabase.co` | Your Supabase URL |
 | `SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase anonymous key |
 | `SUPABASE_JWT_SECRET` | `olC5YZLARU6eszH9xFwIO02RvCjH...` | Your Supabase JWT secret |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` | Your Supabase service role key (for user management commands) |
 
 **🗑️ REMOVED SECRETS (same as development):**
 All unused environment variables have been removed to simplify configuration.
