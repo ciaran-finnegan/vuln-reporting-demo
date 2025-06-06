@@ -9,7 +9,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0011_systemlog_userprofile'),
+        ('core', '0011_systemlog'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
