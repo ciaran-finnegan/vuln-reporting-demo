@@ -136,6 +136,46 @@ class Vulnerability(models.Model):
         return f"{self.external_id or 'No ID'}: {self.title[:50]}"
 
 class ScannerIntegration(models.Model):
+    """Enhanced integration model supporting all future integration types"""
+    
+    # Integration Types
+    INTEGRATION_TYPE_CHOICES = [
+        ('file_upload', 'File Upload'),
+        ('api', 'API Connection'),
+        ('cloud_storage', 'Cloud Storage'),
+        ('webhook', 'Webhook'),
+        ('database', 'Database Connection'),
+        ('message_queue', 'Message Queue'),
+        ('custom', 'Custom Integration'),
+    ]
+    
+    # Status Types  
+    STATUS_CHOICES = [
+        ('inactive', 'Inactive'),
+        ('active', 'Active'),
+        ('testing', 'Testing'),
+        ('error', 'Error'),
+        ('maintenance', 'Maintenance'),
+        ('deprecated', 'Deprecated'),
+    ]
+    
+    # Environment Types
+    ENVIRONMENT_CHOICES = [
+        ('development', 'Development'),
+        ('staging', 'Staging'),
+        ('production', 'Production'),
+    ]
+    
+    # Sync Status Choices
+    SYNC_STATUS_CHOICES = [
+        ('success', 'Success'),
+        ('error', 'Error'), 
+        ('partial', 'Partial Success'),
+        ('timeout', 'Timeout'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # ====== BASIC FIELDS (EXISTING) ======
     name = models.CharField(max_length=100, unique=True)
     type = models.CharField(max_length=50, default='vuln_scanner',
                           help_text="e.g., 'vuln_scanner', 'asset_inventory'")
@@ -146,13 +186,71 @@ class ScannerIntegration(models.Model):
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    
+    # ====== INTEGRATION MANAGEMENT FIELDS (NEW) ======
+    
+    # Integration Configuration
+    integration_type = models.CharField(max_length=20, choices=INTEGRATION_TYPE_CHOICES, default='file_upload')
+    vendor = models.CharField(max_length=100, blank=True, help_text="Vendor name (e.g., 'Tenable', 'Qualys')")
+    logo_url = models.URLField(blank=True, help_text="Integration logo URL")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='inactive')
+    environment = models.CharField(max_length=20, choices=ENVIRONMENT_CHOICES, default='production')
+    
+    # Connection Configuration (JSONB for flexibility)
+    connection_config = models.JSONField(default=dict, blank=True, help_text="Connection settings, credentials, endpoints")
+    
+    # Scheduling & Automation
+    sync_enabled = models.BooleanField(default=False, help_text="Enable automatic syncing")
+    sync_schedule = models.CharField(max_length=100, blank=True, help_text="Cron expression (e.g., '0 2 * * *')")
+    sync_timezone = models.CharField(max_length=50, default='UTC', help_text="Timezone for scheduling")
+    
+    # Sync Status & Health
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    last_sync_status = models.CharField(max_length=20, blank=True, choices=SYNC_STATUS_CHOICES)
+    next_sync_at = models.DateTimeField(null=True, blank=True)
+    
+    # Error Tracking & Health
+    consecutive_failures = models.IntegerField(default=0)
+    total_error_count = models.IntegerField(default=0)
+    last_error_message = models.TextField(blank=True)
+    last_error_at = models.DateTimeField(null=True, blank=True)
+    health_score = models.IntegerField(default=100, help_text="0-100 health score based on recent performance")
+    
+    # Rate Limiting & Performance
+    rate_limit_config = models.JSONField(default=dict, blank=True, help_text="Rate limiting and throttling settings")
+    
+    # Data Processing Settings
+    data_processing_config = models.JSONField(default=dict, blank=True, help_text="Data processing and transformation settings")
+    
+    # Notification Settings
+    notification_config = models.JSONField(default=dict, blank=True, help_text="Alert and notification configuration")
+    
+    # Integration Metadata
+    metadata = models.JSONField(default=dict, blank=True, help_text="Additional metadata and custom fields")
+    
+    # Statistics & Metrics
+    total_records_processed = models.BigIntegerField(default=0)
+    total_assets_created = models.IntegerField(default=0) 
+    total_vulnerabilities_created = models.IntegerField(default=0)
+    total_findings_created = models.IntegerField(default=0)
+    average_sync_duration = models.FloatField(null=True, blank=True, help_text="Average sync time in minutes")
+    
+    # Feature Flags
+    feature_flags = models.JSONField(default=dict, blank=True, help_text="Enable/disable specific features")
+    
     class Meta:
         db_table = 'integrations'
         ordering = ['name']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['integration_type']),
+            models.Index(fields=['vendor']),
+            models.Index(fields=['health_score']),
+            models.Index(fields=['last_sync_at']),
+        ]
 
     def __str__(self):
-        return f"{self.name}" + (f" v{self.version}" if self.version else "")
+        return f"{self.name} ({self.vendor})" + (f" v{self.version}" if self.version else "")
 
 class Finding(models.Model):
     STATUS_CHOICES = [
@@ -440,3 +538,211 @@ class SystemLog(models.Model):
     
     def __str__(self):
         return f"{self.timestamp} [{self.level}] {self.source}: {self.message[:100]}"
+
+
+class IntegrationTemplate(models.Model):
+    """Pre-configured integration templates for quick setup"""
+    
+    STATUS_CHOICES = [
+        ('available', 'Available'),
+        ('coming_soon', 'Coming Soon'),
+        ('beta', 'Beta'),
+        ('deprecated', 'Deprecated'),
+    ]
+    
+    name = models.CharField(max_length=100, unique=True)
+    vendor = models.CharField(max_length=100)
+    integration_type = models.CharField(max_length=20, choices=ScannerIntegration.INTEGRATION_TYPE_CHOICES)
+    logo_url = models.URLField(blank=True)
+    description = models.TextField()
+    
+    # Template Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
+    
+    # Template Configuration
+    default_config = models.JSONField(default=dict, help_text="Default connection configuration")
+    required_fields = models.JSONField(default=list, help_text="List of required configuration fields")
+    optional_fields = models.JSONField(default=list, help_text="List of optional configuration fields")
+    field_mappings_template = models.JSONField(default=list, help_text="Pre-configured field mappings")
+    
+    # Setup Instructions
+    setup_instructions = models.TextField(blank=True, help_text="Markdown formatted setup instructions")
+    documentation_url = models.URLField(blank=True)
+    support_contact = models.EmailField(blank=True)
+    
+    # Validation Rules
+    validation_rules = models.JSONField(default=dict, help_text="Validation rules for configuration")
+    
+    # Capabilities
+    capabilities = models.JSONField(default=list, help_text="List of integration capabilities")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'integration_templates'
+        ordering = ['vendor', 'name']
+    
+    def __str__(self):
+        return f"{self.vendor} {self.name}"
+
+
+class IntegrationSyncLog(models.Model):
+    """Detailed logging for integration sync activities"""
+    
+    TRIGGER_TYPE_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('manual', 'Manual'),
+        ('webhook', 'Webhook'),
+        ('retry', 'Retry'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('running', 'Running'),
+        ('success', 'Success'),
+        ('error', 'Error'),
+        ('partial', 'Partial Success'),
+        ('timeout', 'Timeout'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    integration = models.ForeignKey(ScannerIntegration, on_delete=models.CASCADE, related_name='sync_logs')
+    
+    # Sync Session Details
+    sync_id = models.UUIDField(unique=True, help_text="Unique identifier for this sync session")
+    trigger_type = models.CharField(max_length=20, choices=TRIGGER_TYPE_CHOICES)
+    triggered_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Timing
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.FloatField(null=True, blank=True)
+    
+    # Status & Results
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    
+    # Statistics
+    records_processed = models.IntegerField(default=0)
+    records_created = models.IntegerField(default=0) 
+    records_updated = models.IntegerField(default=0)
+    records_failed = models.IntegerField(default=0)
+    
+    # Error Details
+    error_message = models.TextField(blank=True)
+    error_details = models.JSONField(default=dict, blank=True, help_text="Detailed error information")
+    
+    # Performance Metrics
+    performance_metrics = models.JSONField(default=dict, blank=True, help_text="Performance and timing metrics")
+    
+    # Sync Summary
+    sync_summary = models.JSONField(default=dict, blank=True, help_text="Summary of sync results")
+    
+    class Meta:
+        db_table = 'integration_sync_logs'
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['integration', '-started_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['trigger_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.integration.name} sync {self.sync_id} - {self.status}"
+
+
+class IntegrationAlert(models.Model):
+    """Alert management for integration issues"""
+    
+    ALERT_TYPE_CHOICES = [
+        ('sync_failure', 'Sync Failure'),
+        ('consecutive_failures', 'Consecutive Failures'),
+        ('health_degraded', 'Health Degraded'),
+        ('quota_exceeded', 'Quota Exceeded'),
+        ('connection_error', 'Connection Error'),
+        ('data_quality_issue', 'Data Quality Issue'),
+        ('performance_degraded', 'Performance Degraded'),
+        ('configuration_error', 'Configuration Error'),
+    ]
+    
+    SEVERITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('acknowledged', 'Acknowledged'),
+        ('resolved', 'Resolved'),
+        ('suppressed', 'Suppressed'),
+    ]
+    
+    integration = models.ForeignKey(ScannerIntegration, on_delete=models.CASCADE, related_name='alerts')
+    
+    # Alert Details
+    alert_type = models.CharField(max_length=30, choices=ALERT_TYPE_CHOICES)
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    
+    # Alert Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    
+    # Notification Status
+    notifications_sent = models.JSONField(default=dict, blank=True, help_text="Track which notifications were sent")
+    
+    # Alert Metadata
+    alert_data = models.JSONField(default=dict, blank=True, help_text="Additional alert context")
+    
+    # Timestamps
+    first_occurred_at = models.DateTimeField(auto_now_add=True)
+    last_occurred_at = models.DateTimeField(auto_now=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    occurrence_count = models.IntegerField(default=1)
+    
+    class Meta:
+        db_table = 'integration_alerts'
+        ordering = ['-first_occurred_at']
+        indexes = [
+            models.Index(fields=['integration', 'status']),
+            models.Index(fields=['alert_type', 'severity']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.integration.name}: {self.title} ({self.severity})"
+
+
+class IntegrationQuota(models.Model):
+    """API quota and usage tracking"""
+    
+    integration = models.OneToOneField(ScannerIntegration, on_delete=models.CASCADE, related_name='quota')
+    
+    # Quota Limits
+    monthly_api_calls_limit = models.IntegerField(null=True, blank=True)
+    daily_api_calls_limit = models.IntegerField(null=True, blank=True)
+    hourly_api_calls_limit = models.IntegerField(null=True, blank=True)
+    
+    # Current Usage
+    monthly_api_calls_used = models.IntegerField(default=0)
+    daily_api_calls_used = models.IntegerField(default=0)
+    hourly_api_calls_used = models.IntegerField(default=0)
+    
+    # Reset Timestamps
+    last_monthly_reset = models.DateTimeField(auto_now_add=True)
+    last_daily_reset = models.DateTimeField(auto_now_add=True)
+    last_hourly_reset = models.DateTimeField(auto_now_add=True)
+    
+    # Quota Status
+    quota_exceeded = models.BooleanField(default=False)
+    quota_warning_sent = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'integration_quotas'
+    
+    def __str__(self):
+        return f"{self.integration.name} quota"

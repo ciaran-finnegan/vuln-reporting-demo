@@ -18,6 +18,13 @@ All authenticated endpoints require a Bearer token in the Authorization header:
 Authorization: Bearer your-jwt-token-here
 ```
 
+### Admin Permissions (Updated January 2025)
+Risk Radar now properly transfers admin permissions from JWT tokens to Django User accounts:
+- JWT tokens with `user_metadata.is_staff: true` grant admin access
+- Admin flags are automatically synced from Supabase to Django on each request
+- All admin endpoints (system logs, analytics) now work with JWT authentication
+- No manual user setup required - permissions come directly from Supabase user metadata
+
 ## Rate Limits
 - Upload endpoints: 10 requests/minute
 - Other endpoints: 100 requests/minute
@@ -54,6 +61,7 @@ All responses are JSON with consistent error handling:
 | `/api/v1/logs/` | GET | Admin | System logs |
 | `/api/v1/logs/analytics/error-rate/` | GET | Admin | Error rate trending |
 | `/api/v1/logs/analytics/by-source/` | GET | Admin | Log volume by source |
+| `/api/v1/logs/analytics/by-level/` | GET | Admin | Log distribution by level |
 | `/api/v1/logs/analytics/top-errors/` | GET | Admin | Most frequent errors |
 | `/api/v1/logs/docker/{container}/` | GET | Admin | Container logs |
 | `/api/v1/logs/health/` | GET | Admin | System health |
@@ -239,11 +247,35 @@ curl -H "Authorization: Bearer your-jwt-token" \
   "https://riskradar.dev.securitymetricshub.com/api/v1/auth/profile"
 ```
 
-**Response:**
+**Response for admin user:**
 ```json
 {
   "user": {
     "id": 123,
+    "email": "admin@example.com",
+    "first_name": "Admin",
+    "last_name": "User",
+    "is_staff": true,
+    "is_superuser": false,
+    "date_joined": "2025-01-01T00:00:00Z"
+  },
+  "profile": {
+    "business_group": "Production",
+    "supabase_user_id": "uuid-string"
+  },
+  "permissions": {
+    "is_admin": true,
+    "can_upload": true,
+    "can_view_logs": true
+  }
+}
+```
+
+**Response for regular user:**
+```json
+{
+  "user": {
+    "id": 124,
     "email": "user@example.com",
     "first_name": "John",
     "last_name": "Doe",
@@ -312,6 +344,100 @@ curl -H "Authorization: Bearer admin-jwt-token" \
   "total_count": 150,
   "has_more": true,
   "next_offset": 10
+}
+```
+
+### Get Error Rate Analytics
+Get error rate trending data with level distribution.
+
+**Endpoint:** `GET /api/v1/logs/analytics/error-rate/`
+**Authentication:** Required (Admin only)
+
+**Parameters:**
+- `timeRange` (optional): Time range filter (`1h`, `24h`, `7d`, default: `24h`)
+
+**Example:**
+```bash
+curl -H "Authorization: Bearer admin-jwt-token" \
+  "https://riskradar.dev.securitymetricshub.com/api/v1/logs/analytics/error-rate/?timeRange=24h"
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "time": "2025-01-02T10:00:00Z",
+      "error_count": 5,
+      "total_count": 250,
+      "error_rate": 2.0
+    },
+    {
+      "time": "2025-01-02T11:00:00Z", 
+      "error_count": 3,
+      "total_count": 180,
+      "error_rate": 1.67
+    }
+  ],
+  "level_counts": [
+    {
+      "level": "INFO",
+      "count": 8542
+    },
+    {
+      "level": "ERROR", 
+      "count": 67
+    },
+    {
+      "level": "WARNING",
+      "count": 34
+    }
+  ],
+  "time_range": "24h"
+}
+```
+
+### Get Log Analytics by Level
+Get log distribution by log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+
+**Endpoint:** `GET /api/v1/logs/analytics/by-level/`
+**Authentication:** Required (Admin only)
+
+**Parameters:**
+- `timeRange` (optional): Time range filter (`1h`, `24h`, `7d`, default: `24h`)
+
+**Example:**
+```bash
+curl -H "Authorization: Bearer admin-jwt-token" \
+  "https://riskradar.dev.securitymetricshub.com/api/v1/logs/analytics/by-level/?timeRange=24h"
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "level": "INFO",
+      "count": 8542
+    },
+    {
+      "level": "ERROR",
+      "count": 67
+    },
+    {
+      "level": "WARNING",
+      "count": 34
+    },
+    {
+      "level": "DEBUG",
+      "count": 12
+    },
+    {
+      "level": "CRITICAL",
+      "count": 3
+    }
+  ],
+  "time_range": "24h"
 }
 ```
 
@@ -451,4 +577,5 @@ See the [examples directory](../examples/) for complete integration examples:
 - **Documentation**: [https://riskradar.dev.securitymetricshub.com/api/docs/](https://riskradar.dev.securitymetricshub.com/api/docs/)
 - **Postman Collection**: [risk-radar-api.postman_collection.json](./risk-radar-api.postman_collection.json)
 - **Authentication Guide**: [authentication.md](./authentication.md)
+- **API Changelog**: [CHANGELOG.md](./CHANGELOG.md) - Latest updates and fixes
 - **GitHub Repository**: [vuln-reporting-demo](https://github.com/ciaran-finnegan/vuln-reporting-demo) 

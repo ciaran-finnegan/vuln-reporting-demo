@@ -294,12 +294,19 @@ python manage.py populate_initial_data
 python manage.py setup_asset_categories
 python manage.py setup_enhanced_nessus_mappings
 
-# 3. Import scan data
+# 3. Create test users for development
+# Option A: Create Supabase users (recommended - requires SUPABASE_SERVICE_ROLE_KEY in .env)
+python manage.py create_supabase_test_users
+# Option B: Create Django-only users (for admin interface testing)
+# python manage.py create_test_users
+
+# 4. Import scan data
 python manage.py import_nessus /path/to/your/nessus/files/
 
-# 4. Access the admin interface to verify data
+# 5. Access the admin interface to verify data
 python manage.py runserver
 # Visit http://localhost:8000/admin/
+# Login with admin@riskradar.com / admin123! (Supabase) or admin@riskradar.com / admin (Django)
 ```
 
 ### Requirements & Dependencies
@@ -310,6 +317,113 @@ python manage.py runserver
   - `setup_asset_categories` before `setup_enhanced_nessus_mappings`
   - Field mappings before `import_nessus`
   - `populate_initial_data` for business groups and SLA policies
+
+---
+
+## 👥 Test Users & Development
+
+Risk Radar includes Django management commands to create test users for development and testing purposes. You can create either Django-only users or full Supabase Auth users.
+
+### Option 1: Create Supabase Auth Users (Recommended)
+```bash
+# Create real Supabase users (requires SUPABASE_SERVICE_ROLE_KEY in .env)
+python manage.py create_supabase_test_users
+
+# Reset existing Supabase test users and create new ones
+python manage.py create_supabase_test_users --reset
+```
+
+### Option 2: Create Django-Only Users
+```bash
+# Create Django users (for admin interface only)
+python manage.py create_test_users
+
+# Reset existing Django test users and create new ones
+python manage.py create_test_users --reset
+```
+
+### Default Test Users
+
+Both commands create two test users with predefined credentials:
+
+#### Admin User
+- **Email**: `admin@riskradar.com`
+- **Password**: 
+  - Django users: `admin`
+  - Supabase users: `admin123!`
+- **Permissions**: Staff, Superuser
+- **Access**: Full Django admin access, all API endpoints including system logs
+
+#### Regular User  
+- **Email**: `user@riskradar.com`
+- **Password**: 
+  - Django users: `notadmin`
+  - Supabase users: `notadmin123!`
+- **Permissions**: Standard user
+- **Access**: Basic API endpoints, file uploads, no admin access
+
+### Usage
+
+**Setup Requirements for Supabase Users:**
+
+**Local Development:**
+```bash
+# Add your Supabase service role key to .env file:
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-from-supabase-dashboard
+```
+
+**Digital Ocean Deployment:**
+```bash
+# Add SUPABASE_SERVICE_ROLE_KEY to your GitHub environment secrets:
+# 1. Go to GitHub repository → Settings → Environments
+# 2. Edit "dev" environment → Add secret:
+#    Name: SUPABASE_SERVICE_ROLE_KEY
+#    Value: your-service-role-key-from-supabase-dashboard
+```
+
+**Django Admin Access (Both User Types):**
+```bash
+# Start the development server
+python manage.py runserver
+
+# Visit http://localhost:8000/admin/
+# Login with test user credentials
+```
+
+**API Testing:**
+
+**With Supabase Users (Recommended):**
+```bash
+# These users can generate real JWT tokens for API testing
+# 1. Login via frontend or use Supabase client to get JWT token
+# 2. Test admin endpoints with JWT
+curl -H "Authorization: Bearer supabase-jwt-token" \
+  http://localhost:8000/api/v1/logs/health/
+
+# 3. Test regular endpoints
+curl -H "Authorization: Bearer supabase-jwt-token" \
+  http://localhost:8000/api/v1/auth/profile
+```
+
+**With Django Users (Local Only):**
+```bash
+# Django users work via session authentication
+# 1. Login to Django admin first: http://localhost:8000/admin/
+# 2. Test API endpoints in same browser session
+fetch('/api/v1/auth/profile').then(r => r.json()).then(console.log)
+```
+
+### Comparison
+
+| Feature | Django Users | Supabase Users |
+|---------|--------------|----------------|
+| **Django Admin** | ✅ Full access | ✅ Auto-created on first API request |
+| **Frontend Login** | ❌ Cannot login | ✅ Full login support |
+| **JWT Token Generation** | ❌ No JWT support | ✅ Real JWT tokens |
+| **API Testing** | ✅ Session-based only | ✅ JWT + Session |
+| **Production Ready** | ❌ Development only | ✅ Works everywhere |
+
+**Recommendation**: Use `create_supabase_test_users` for comprehensive testing that matches production authentication.
 
 ---
 
@@ -444,4 +558,4 @@ Authorization: Bearer admin-jwt-token
 
 MIT
 
-> For Nessus field extraction and mapping, see [nessus_extractor.py extraction script](https://github.com/ciaran-finnegan/nessus-reporting-metrics-demo/blob/main/etl/extractors/nessus_extractor.py). 
+> For Nessus field extraction and mapping, see [nessus_extractor.py extraction script](https://github.com/ciaran-finnegan/nessus-reporting-metrics-demo/blob/main/etl/extractors/nessus_extractor.py). # Test Docker logs fix

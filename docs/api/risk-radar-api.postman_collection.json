@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "risk-radar-api-collection",
 		"name": "Risk Radar API Collection",
-		"description": "Complete API testing collection for Risk Radar vulnerability management platform",
+		"description": "Complete API testing collection for Risk Radar vulnerability management platform. Updated January 2025 with enhanced JWT authentication that properly transfers admin permissions from Supabase user metadata.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -465,7 +465,7 @@
 			"key": "admin_jwt_token",
 			"value": "your-admin-supabase-jwt-token-here",
 			"type": "string",
-			"description": "Supabase JWT token for admin user (required for log management endpoints)"
+			"description": "Supabase JWT token for admin user with user_metadata.is_staff: true (required for system monitoring endpoints)"
 		}
 	]
 } 

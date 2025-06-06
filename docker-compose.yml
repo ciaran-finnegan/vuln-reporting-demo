@@ -1,1 +1,29 @@
 version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - ENABLE_DOCKER_LOGS=${ENABLE_DOCKER_LOGS:-false}
+    volumes:
+      - ./temp_uploads:/app/temp_uploads
+      - ./staticfiles:/app/staticfiles
+      # Docker socket mount disabled in production for security
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - ./staticfiles:/var/www/static
+    depends_on:
+      - web
+    restart: unless-stopped

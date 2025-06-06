@@ -38,6 +38,23 @@ Risk Radar provides a vulnerability management platform with features designed t
 - **Nessus Parser**: ✅ **FULLY IMPLEMENTED** - XML processing with dynamic field mapping and asset categorisation
 - **Real-time Sync**: Automated connector scheduling with activity logging
 
+### 🔧 Integration Management System ✨ **NEW FEATURE**
+- **Visual Integration Gallery**: Modern card-based interface showcasing 15+ available and planned integrations
+- **Multi-Type Support**: File upload, API connections, cloud storage, webhooks, and custom integrations
+- **Configuration Wizard**: Guided 8-step setup with connection testing and data preview
+- **Integration Templates**: Pre-configured setups for major vendors (Nessus, Qualys, CrowdStrike, etc.)
+- **Advanced Scheduling**: Cron-based sync scheduling with timezone support and conflict detection
+- **Health Monitoring**: Real-time status tracking, error alerts, and performance metrics
+- **Connection Testing**: Validate credentials, endpoints, and data access before activation
+- **Data Preview**: Sample data display during setup to verify field mappings
+- **Field Mapping Studio**: Visual drag-and-drop interface for complex data transformations
+- **Rate Limiting**: Configurable API throttling and retry logic per integration
+- **Sync Management**: Manual sync triggers, progress tracking, and history retention
+- **Error Recovery**: Automatic retry with exponential backoff and dead letter handling
+- **Notification System**: Email/Slack alerts for sync failures, thresholds, and health issues
+- **Activity Logging**: Comprehensive audit trail for compliance and troubleshooting
+- **Multi-Environment**: Support for dev/staging/production configurations per integration
+
 ### 📊 Risk Management
 - **Business Context Integration**: Business Groups and Asset Tags for organisational alignment
 - **Dynamic Risk Scoring**: Multi-factor risk calculation combining severity, threats, and business impact
@@ -120,6 +137,23 @@ The following table outlines which features will be implemented in the MVP phase
 | | CrowdStrike integration | ❌ | ✅ | Phase 3 |
 | | Real-time connector sync | ❌ | ✅ | Manual upload only in MVP |
 | | Connector activity logging | ✅ | | Basic logging via Django |
+| **Integration Management** | | | | |
+| | Visual integration gallery | ✅ | | Modern card-based UI with roadmap |
+| | Nessus file upload (active) | ✅ | | Production-ready integration |
+| | Integration templates | ✅ | | Pre-configured vendor setups |
+| | Configuration wizard | ✅ | | 8-step guided setup process |
+| | Connection testing | ✅ | | Validate settings before activation |
+| | Data preview | ✅ | | Sample data during setup |
+| | Basic field mapping | ✅ | | Manual configuration interface |
+| | Health monitoring | ✅ | | Status indicators and error tracking |
+| | API integrations | ❌ | ✅ | Qualys, Tenable.io, CrowdStrike APIs |
+| | Cloud storage integrations | ❌ | ✅ | S3, Azure Blob, GCP Storage |
+| | Webhook integrations | ❌ | ✅ | Real-time data push notifications |
+| | Advanced scheduling | ❌ | ✅ | Cron-based automation with timezones |
+| | Field mapping studio | ❌ | ✅ | Visual drag-and-drop interface |
+| | Rate limiting | ❌ | ✅ | API throttling and retry logic |
+| | Notification system | ❌ | ✅ | Email/Slack alerts for issues |
+| | Multi-environment support | ❌ | ✅ | Dev/staging/production configs |
 | **Risk Management** | | | | |
 | | Basic risk scoring (severity-based) | ✅ | | Simplified formula |
 | | Threat intelligence integration | ❌ | ✅ | Phase 4 |

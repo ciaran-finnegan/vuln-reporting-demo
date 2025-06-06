@@ -1,0 +1,13 @@
+# Docker Logs Override Configuration
+# This file provides Docker socket access for development environments
+# SECURITY WARNING: Never use this in production!
+
+version: '3.8'
+
+services:
+  web:
+    environment:
+      - ENABLE_DOCKER_LOGS=true
+    volumes:
+      # Mount Docker socket for container logs access
+      - /var/run/docker.sock:/var/run/docker.sock 

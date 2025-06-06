@@ -18,8 +18,49 @@ import subprocess
 import docker
 
 from .models import SystemLog
+import re
 
 logger = logging.getLogger(__name__)
+
+def clean_log_message(message):
+    """
+    Clean log message by removing redundant timestamp, level, and source information
+    that's already displayed in separate columns.
+    
+    Example input: "2025-06-06 01:28:21.097 ERROR django.request Internal Server Error"
+    Example output: "Internal Server Error"
+    """
+    if not message:
+        return message
+    
+    # Pattern to match: YYYY-MM-DD HH:MM:SS.nnn LEVEL source.module actual_message
+    # This covers Django log format and similar structured log formats
+    pattern = r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+[A-Z]+\s+[\w\.]+(:\s*|\s+)(.*)'
+    match = re.match(pattern, message)
+    
+    if match:
+        # Return just the actual message part
+        cleaned = match.group(2).strip()
+        return cleaned if cleaned else message
+    
+    # Also handle simpler format: [LEVEL] source: message
+    pattern2 = r'^\[?[A-Z]+\]?\s*[\w\.]+:\s*(.*)'
+    match2 = re.match(pattern2, message)
+    
+    if match2:
+        cleaned = match2.group(1).strip()
+        return cleaned if cleaned else message
+    
+    # Also handle: LEVEL source message (without colon)
+    pattern3 = r'^[A-Z]+\s+[\w\.]+\s+(.*)'
+    match3 = re.match(pattern3, message)
+    
+    if match3:
+        cleaned = match3.group(1).strip()
+        return cleaned if cleaned else message
+    
+    # If no pattern matches, return original message
+    return message
 
 class IsAdminUser(BasePermission):
     """
@@ -95,7 +136,7 @@ def get_logs(request):
                 'level': log.level,
                 'source': log.source,
                 'module': log.module,
-                'message': log.message,
+                'message': clean_log_message(log.message),
                 'metadata': log.metadata,
                 'request_id': log.request_id,
                 'user': {
@@ -121,7 +162,7 @@ def get_logs(request):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_log_analytics_error_rate(request):
-    """Get error rate trending data"""
+    """Get error rate trending data with level counts"""
     try:
         time_range = request.GET.get('timeRange', '24h')
         
@@ -159,6 +200,13 @@ def get_log_analytics_error_rate(request):
             total_count=Count('id')
         ).order_by('time_bucket')
         
+        # Get level counts for the chart
+        level_counts = SystemLog.objects.filter(
+            timestamp__gte=start_time
+        ).values('level').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
         # Combine error and total counts
         data_points = []
         total_dict = {item['time_bucket']: item['total_count'] for item in total_data}
@@ -178,11 +226,46 @@ def get_log_analytics_error_rate(request):
         
         return Response({
             'data': data_points,
+            'level_counts': list(level_counts),  # Add level counts for frontend
             'time_range': time_range
         })
         
     except Exception as e:
         logger.error(f"Error getting error rate data: {str(e)}", exc_info=True)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_log_analytics_by_level(request):
+    """Get log counts by level"""
+    try:
+        time_range = request.GET.get('timeRange', '24h')
+        
+        # Calculate time range
+        now = timezone.now()
+        if time_range == '1h':
+            start_time = now - timedelta(hours=1)
+        elif time_range == '24h':
+            start_time = now - timedelta(days=1)
+        elif time_range == '7d':
+            start_time = now - timedelta(days=7)
+        else:
+            start_time = now - timedelta(days=1)
+        
+        # Get log counts by level
+        level_data = SystemLog.objects.filter(
+            timestamp__gte=start_time
+        ).values('level').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        return Response({
+            'data': list(level_data),
+            'time_range': time_range
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting level data: {str(e)}", exc_info=True)
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -246,8 +329,16 @@ def get_log_analytics_top_errors(request):
             count=Count('id')
         ).order_by('-count')[:limit]
         
+        # Clean the error messages
+        cleaned_errors = []
+        for error in top_errors:
+            cleaned_errors.append({
+                'message': clean_log_message(error['message']),
+                'count': error['count']
+            })
+        
         return Response({
-            'data': list(top_errors),
+            'data': cleaned_errors,
             'time_range': time_range,
             'limit': limit
         })
@@ -259,9 +350,41 @@ def get_log_analytics_top_errors(request):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_docker_logs(request, container_name):
-    """Get Docker container logs"""
+    """Get Docker container logs (if enabled via ENABLE_DOCKER_LOGS env var)"""
     try:
         lines = int(request.GET.get('lines', 100))
+        lines = min(lines, 1000)  # Cap at 1000 lines for performance
+        
+        # Check if Docker logs are enabled via environment variable
+        import os
+        docker_logs_enabled = os.getenv('ENABLE_DOCKER_LOGS', 'false').lower() == 'true'
+        
+        if not docker_logs_enabled:
+            # Return informative message when Docker logs are disabled
+            now = timezone.now()
+            disabled_logs = [
+                {
+                    'timestamp': now.isoformat(),
+                    'message': f'[INFO] Docker logs access is disabled'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=30)).isoformat(),
+                    'message': f'[INFO] Set ENABLE_DOCKER_LOGS=true in environment to enable'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=60)).isoformat(),
+                    'message': f'[INFO] Container: {container_name}'
+                }
+            ]
+            
+            return Response({
+                'container': container_name,
+                'logs': disabled_logs,
+                'total_lines': len(disabled_logs),
+                'lines_requested': lines,
+                'docker_logs_enabled': False,
+                'message': 'Docker logs disabled via ENABLE_DOCKER_LOGS environment variable'
+            })
         
         # Use Docker API to get container logs
         try:
@@ -286,12 +409,46 @@ def get_docker_logs(request, container_name):
             return Response({
                 'container': container_name,
                 'logs': log_lines[-lines:],  # Return last N lines
-                'total_lines': len(log_lines)
+                'total_lines': len(log_lines),
+                'lines_requested': lines,
+                'container_status': container.status,
+                'docker_logs_enabled': True
             })
             
         except docker.errors.NotFound:
             return Response({'error': f'Container {container_name} not found'}, status=status.HTTP_404_NOT_FOUND)
+        except (ConnectionError, FileNotFoundError, PermissionError) as docker_error:
+            # Handle Docker socket access issues gracefully
+            logger.warning(f"Docker socket access error for container {container_name}: {str(docker_error)}")
+            
+            # Return informative fallback message when Docker socket isn't accessible
+            now = timezone.now()
+            fallback_logs = [
+                {
+                    'timestamp': now.isoformat(),
+                    'message': f'[WARNING] Docker socket not accessible: {str(docker_error)}'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=30)).isoformat(),
+                    'message': f'[INFO] ENABLE_DOCKER_LOGS is enabled but Docker socket is not mounted'
+                },
+                {
+                    'timestamp': (now - timedelta(seconds=60)).isoformat(),
+                    'message': f'[INFO] Container: {container_name} - Socket access required for real logs'
+                }
+            ]
+            
+            return Response({
+                'container': container_name,
+                'logs': fallback_logs,
+                'total_lines': len(fallback_logs),
+                'lines_requested': lines,
+                'docker_logs_enabled': True,
+                'docker_socket_accessible': False,
+                'error_message': f'Docker socket access error: {str(docker_error)}'
+            })
         except Exception as docker_error:
+            logger.error(f"Docker API error for container {container_name}: {str(docker_error)}")
             return Response({'error': f'Docker error: {str(docker_error)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     except Exception as e:
