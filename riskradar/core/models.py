@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -609,7 +610,7 @@ class IntegrationSyncLog(models.Model):
     integration = models.ForeignKey(ScannerIntegration, on_delete=models.CASCADE, related_name='sync_logs')
     
     # Sync Session Details
-    sync_id = models.UUIDField(unique=True, help_text="Unique identifier for this sync session")
+    sync_id = models.UUIDField(unique=True, default=uuid.uuid4, help_text="Unique identifier for this sync session")
     trigger_type = models.CharField(max_length=20, choices=TRIGGER_TYPE_CHOICES)
     triggered_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
     
