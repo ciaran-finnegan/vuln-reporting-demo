@@ -1,5 +1,46 @@
 # Changes
 
+## 0.3.0 (2025-01-06) - Enhanced Metrics & KPI Framework
+
+### Comprehensive Metrics System with Dimensional Analysis
+- **Enhanced metrics database schema**:
+  - Created separate Category, Audience, Framework, and ControlRef models for proper taxonomy
+  - Enhanced Metric model with individual SLO fields instead of JSON configuration
+  - Added dimension_config JSONB field for flexible filtering and grouping
+  - Implemented many-to-many relationships for metrics to categories, audiences, and controls
+- **Dimensional analysis framework**:
+  - 12 available dimensions: business_group, asset_category, vulnerability_severity, finding_status, etc.
+  - Flexible configuration: default, allowed, required, groupable, filterable dimension sets
+  - API integration with dimension-aware endpoints and dynamic filtering
+  - Frontend-ready with current values API for dropdown population
+- **Comprehensive metric types support**:
+  - KPI metrics: Numeric and ordinal snapshot measurements with SLO thresholds
+  - Trend metrics: Percentage change calculations with configurable comparison periods
+  - Chart metrics: Distribution and visualization data without SLO requirements
+  - List metrics: Enumerated data sets for reporting and analysis
+- **YAML configuration system**:
+  - Complete YAML schema for easy metric definition and maintenance
+  - Support for complex SLO configurations with target/limit thresholds
+  - Compliance framework mapping with CIS Controls, ISO 27001, and custom frameworks
+  - Enhanced metadata fields: calc_logic, viewer_guidance, impl_guidance, more_info_url
+- **Production-ready framework**:
+  - Future-proof schema supporting advanced analytics without migrations
+  - API endpoints for metric management, calculation, and dimensional querying
+  - Complete documentation with 5 comprehensive metric examples
+  - Executive dashboard and operational monitoring capabilities
+
+### Documentation Enhancements (2025-01-06)
+- **Updated PRODUCT_REQUIREMENTS_DOCUMENT.md**:
+  - Complete rewrite of metrics schema section with enhanced structure
+  - Added dimensional configuration system documentation
+  - Comprehensive YAML configuration examples covering all metric types
+  - API integration documentation with dimension filtering examples
+- **Enhanced implementation guidance**:
+  - Detailed metric calculation examples for all value types
+  - SQL examples for numeric, trend, and ordinal metric calculations
+  - API endpoint specifications for dimensional analysis
+  - Frontend integration patterns for metric visualization
+
 ## 0.2.1 (2025-01-03)
 
 ### Upload Permissions Automation (2025-01-03)
