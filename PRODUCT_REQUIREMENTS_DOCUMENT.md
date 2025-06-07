@@ -827,6 +827,500 @@ CREATE TABLE severity_mapping (
 
 **Purpose**: Normalises different scanner severity scales to consistent internal ratings.
 
+### 3.8 Metrics & KPI Data Model
+
+Risk Radar includes a comprehensive metrics framework for KPI reporting, executive dashboards, and operational monitoring. The metrics system supports KPIs, trends, charts, and lists with configurable SLO thresholds and control framework mapping.
+
+#### Enhanced Metrics Schema
+```sql
+-- Category taxonomy for metric grouping
+CREATE TABLE metric_category (
+    category_id SERIAL PRIMARY KEY,
+    name VARCHAR(64) NOT NULL UNIQUE,
+    description TEXT
+);
+
+-- Audience taxonomy for metric targeting  
+CREATE TABLE metric_audience (
+    audience_id SERIAL PRIMARY KEY,
+    name VARCHAR(64) NOT NULL UNIQUE,
+    description TEXT
+);
+
+-- Compliance frameworks (CIS, ISO 27001, etc.)
+CREATE TABLE compliance_framework (
+    framework_id SERIAL PRIMARY KEY,
+    code VARCHAR(32) NOT NULL UNIQUE,         -- "CIS8.1", "ISO27001"
+    name VARCHAR(128) NOT NULL                -- "CIS Controls v8.1"
+);
+
+-- Individual controls within frameworks
+CREATE TABLE control_reference (
+    control_ref_id SERIAL PRIMARY KEY,
+    framework_id INTEGER NOT NULL REFERENCES compliance_framework(framework_id) ON DELETE CASCADE,
+    control_id VARCHAR(32) NOT NULL,         -- "7.7", "A.12.1.2"
+    title VARCHAR(128) NOT NULL,
+    UNIQUE(framework_id, control_id)
+);
+
+-- Enhanced metrics table with expanded configuration
+CREATE TABLE metrics (
+    metric_id SERIAL PRIMARY KEY,
+    
+    -- Core Identifiers
+    name VARCHAR(128) NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    
+    -- Calculation & Data Type Configuration
+    metric_type VARCHAR(8) NOT NULL,          -- 'kpi', 'trend', 'chart', 'list'
+    value_type VARCHAR(8) NOT NULL,           -- 'numeric', 'ordinal'
+    measurement_function VARCHAR(32) NOT NULL, -- 'count', 'percentage', 'pct_change', 'rate', 'distribution'
+    calc_logic TEXT,                          -- SQL, ORM annotation, or pseudo-code
+    
+    -- Trend Configuration (for metric_type = 'trend')
+    comparison_period_unit VARCHAR(8),        -- 'weeks', 'months', 'days'
+    comparison_period_count INTEGER,          -- 4 (for 4-week trends)
+    
+    -- Ordinal Configuration (for value_type = 'ordinal')
+    enum_values JSONB,                        -- ["none", "low", "medium", "high", "critical"]
+    enum_direction_up BOOLEAN DEFAULT TRUE,   -- true = list order worst→best, false = best→worst
+    
+    -- Service Level Objectives (SLO)
+    slo_target_value VARCHAR(64),             -- "95", "fully"
+    slo_limit_value VARCHAR(64),              -- "85", "partially" 
+    slo_direction VARCHAR(4),                 -- "up", "down"
+    slo_unit VARCHAR(32),                     -- "percentage", "days", "level"
+    slo_type VARCHAR(16),                     -- "unit", "percentage", "enum", "trend"
+    slo_operator VARCHAR(2),                  -- ">=", "<=", ">", "<"
+    
+    -- Enhancement Fields
+    weighting DECIMAL(5,2) DEFAULT 1.00,     -- For score aggregation (1.00 = neutral)
+    viewer_guidance TEXT,                     -- "What to strive for" - user-facing
+    impl_guidance TEXT,                       -- Developer notes, links to code examples
+    more_info_url VARCHAR(2048),              -- External documentation URL
+    
+    -- Dimension Configuration
+    dimension_config JSONB DEFAULT '{}',     -- Defines available dimensions for filtering/grouping
+    
+    -- Metadata
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Many-to-Many: Metrics to Categories
+CREATE TABLE metric_category_mapping (
+    metric_id INTEGER NOT NULL REFERENCES metrics(metric_id) ON DELETE CASCADE,
+    category_id INTEGER NOT NULL REFERENCES metric_category(category_id) ON DELETE CASCADE,
+    PRIMARY KEY (metric_id, category_id)
+);
+
+-- Many-to-Many: Metrics to Audiences
+CREATE TABLE metric_audience_mapping (
+    metric_id INTEGER NOT NULL REFERENCES metrics(metric_id) ON DELETE CASCADE,
+    audience_id INTEGER NOT NULL REFERENCES metric_audience(audience_id) ON DELETE CASCADE,
+    PRIMARY KEY (metric_id, audience_id)
+);
+
+-- Many-to-Many: Metrics to Control References
+CREATE TABLE metric_control_mapping (
+    metric_id INTEGER NOT NULL REFERENCES metrics(metric_id) ON DELETE CASCADE,
+    control_ref_id INTEGER NOT NULL REFERENCES control_reference(control_ref_id) ON DELETE CASCADE,
+    PRIMARY KEY (metric_id, control_ref_id)
+);
+
+-- Metric Values Storage (unchanged core structure)
+CREATE TABLE metric_values (
+    value_id SERIAL PRIMARY KEY,
+    metric_id INTEGER NOT NULL REFERENCES metrics(metric_id) ON DELETE CASCADE,
+    
+    -- Value Storage (one of these will be populated based on metric.value_type)
+    numeric_value NUMERIC(10,2),              -- For numeric metrics
+    ordinal_value VARCHAR(50),                -- For ordinal metrics (must match enum_values)
+    
+    -- Trend Calculation (for metric_type = 'trend')
+    previous_value NUMERIC(10,2),             -- Previous period value for trend calculation
+    percentage_change NUMERIC(6,2),          -- Calculated percentage change
+    
+    -- SLO Status
+    slo_status VARCHAR(20) NOT NULL,          -- 'green', 'amber', 'red'
+    meets_target BOOLEAN NOT NULL,
+    meets_limit BOOLEAN NOT NULL,
+    
+    -- Context & Metadata
+    measurement_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    calculation_metadata JSONB DEFAULT '{}', -- Details about how value was calculated
+    business_group_id INTEGER REFERENCES business_group(business_group_id), -- Optional scoping
+    
+    -- Indexing
+    UNIQUE(metric_id, measurement_date, business_group_id)
+);
+
+-- Performance Indexes
+CREATE INDEX idx_metrics_type ON metrics(metric_type);
+CREATE INDEX idx_metrics_value_type ON metrics(value_type);
+CREATE INDEX idx_metrics_active ON metrics(is_active) WHERE is_active = true;
+CREATE INDEX idx_metric_values_date ON metric_values(measurement_date DESC);
+CREATE INDEX idx_metric_values_slo ON metric_values(slo_status);
+CREATE INDEX idx_metric_values_metric_date ON metric_values(metric_id, measurement_date DESC);
+```
+
+#### Dimension Configuration System
+
+The enhanced metrics system supports configurable dimensions for flexible data filtering and grouping. The `dimension_config` JSONB field defines which dimensions are available for each metric.
+
+**Available Dimensions (based on current schema):**
+
+| Dimension | Description | Data Source |
+|-----------|-------------|-------------|
+| `business_group` | Business group assignment | `business_group` table |
+| `asset_category` | Asset type (Host, Code Project, Website, etc.) | `asset_category` table |
+| `asset_subtype` | Specific asset subtype (Server, Router, etc.) | `asset_subtype` table |
+| `asset_os` | Operating system | `assets.operating_system` |
+| `vulnerability_severity` | Severity level (Critical, High, Medium, Low) | `vulnerabilities.severity_label` |
+| `finding_status` | Finding lifecycle status | `findings.status` |
+| `scanner_vendor` | Scanner integration vendor | `integrations.vendor` |
+| `integration_type` | Type of integration | `integrations.integration_type` |
+| `environment` | Environment classification | `integrations.environment` |
+| `risk_level` | Calculated risk band | Derived from `findings.risk_score` |
+| `sla_status` | SLA compliance status | Calculated field |
+| `time` | Temporal grouping | `metric_values.measurement_date` |
+
+**Dimension Configuration Structure:**
+```json
+{
+  "default": ["business_group", "time"],
+  "allowed": ["business_group", "asset_category", "vulnerability_severity", "time", "sla_status"],
+  "required": ["time"],
+  "groupable": ["business_group", "asset_category", "vulnerability_severity"],
+  "filterable": ["business_group", "asset_category", "vulnerability_severity", "finding_status", "time"]
+}
+```
+
+**Field Descriptions:**
+- `default`: Dimensions shown by default in UI
+- `allowed`: All dimensions available for this metric
+- `required`: Dimensions that must always be present
+- `groupable`: Dimensions that support GROUP BY operations
+- `filterable`: Dimensions that support WHERE clause filtering
+
+#### YAML Configuration Schema
+The enhanced metrics system supports YAML-based configuration for easy metric definition:
+
+```yaml
+# Template Structure
+- name: <string>
+  description: <string>
+  category: <single or list>          # may use a list or a single value
+  audience: <single or list>
+  metric_type: kpi | trend | chart | list
+  value_type: numeric | ordinal
+  measurement_function: count | percentage | pct_change | rate | distribution
+  comparison_period:
+    unit: weeks | months | days       # omit for snapshot metrics
+    count: <int>
+  enum_values: [list, of, values]     # only for ordinal
+  enum_direction_up: true | false
+  # SLO
+  slo:
+    target: 95 | "fully"
+    limit: 85  | "partially"
+    direction: up | down
+    unit: percentage | days | level
+    operator: ">=" | "<="
+  # Dimensions (optional)
+  dimensions:
+    default: [business_group, time]   # dimensions shown by default
+    allowed: [list, of, dimensions]   # all available dimensions
+    required: [time]                  # dimensions that must be present
+    groupable: [list, of, dimensions] # dimensions supporting GROUP BY
+    filterable: [list, of, dimensions]# dimensions supporting WHERE
+  weighting: 1.0                      # optional float
+  viewer_guidance: >
+    Keep above 95 % to meet contract KPIs.
+  impl_guidance: >
+    See /sql/spr.sql for calculation;
+    uses daily asset snapshot table.
+  cis_controls: ["7", "16"]           # list of control IDs
+  more_info_url: "https://internal/wiki/SLA-kpi"
+```
+
+#### Comprehensive Metric Examples
+
+**A. Numeric KPI (Higher = Better)**
+```yaml
+- name: Assets Compliant with SLA
+  description: Percentage of assets within the remediation SLA
+  category: Remediation SLA
+  audience: ["Executive", "Security Management"]
+  metric_type: kpi
+  value_type: numeric
+  measurement_function: percentage
+  slo:
+    target: 95
+    limit: 85
+    direction: up
+    unit: percentage
+    operator: ">="
+  dimensions:
+    default: [business_group, time]
+    allowed: [business_group, asset_category, asset_subtype, vulnerability_severity, time, sla_status]
+    required: [time]
+    groupable: [business_group, asset_category, vulnerability_severity]
+    filterable: [business_group, asset_category, asset_subtype, vulnerability_severity, sla_status, time]
+  weighting: 1.0
+  viewer_guidance: >
+    Maintain ≥ 95 % to satisfy client contracts.
+  impl_guidance: >
+    Query: sla_asset_pct.sql
+  cis_controls: ["7"]
+  more_info_url: "https://docs.riskradar.local/sla"
+```
+
+**B. Numeric Trend (Lower = Better)**
+```yaml
+- name: Total Open Vulnerabilities trend
+  description: Four-week % change in open vulnerabilities
+  category: Risk Exposure
+  audience: Security Management
+  metric_type: trend
+  value_type: numeric
+  measurement_function: pct_change
+  comparison_period: {unit: weeks, count: 4}
+  slo:
+    target: -5               # ≤ -5 % is green
+    limit: 0                 # ≤ 0 % is amber
+    direction: down
+    unit: percentage
+    operator: "<="
+  dimensions:
+    default: [vulnerability_severity, time]
+    allowed: [business_group, vulnerability_severity, scanner_vendor, environment, time, risk_level]
+    required: [time]
+    groupable: [vulnerability_severity, scanner_vendor, environment]
+    filterable: [business_group, vulnerability_severity, scanner_vendor, environment, time, risk_level]
+  viewer_guidance: >
+    Aim for at least a 5 % weekly reduction; any increase is red.
+  impl_guidance: >
+    ETL job compares snapshot_vuln_count for W-4 vs W-0.
+```
+
+**C. Ordinal KPI (Higher Rank = Better)**
+```yaml
+- name: Control Effectiveness
+  description: Effectiveness rating for the Email Phishing Control
+  category: Control Assurance
+  audience: Audit
+  metric_type: kpi
+  value_type: ordinal
+  enum_values: [not effective, partially, substantially, fully]
+  enum_direction_up: true
+  measurement_function: status_value  # string pass-through
+  slo:
+    target: fully
+    limit: partially
+    direction: up
+    unit: level
+    operator: ">="
+  dimensions:
+    default: [business_group, time]
+    allowed: [business_group, environment, time]
+    required: [time]
+    groupable: [business_group, environment]
+    filterable: [business_group, environment, time]
+  viewer_guidance: >
+    Control must remain 'fully' effective; anything less triggers review.
+  impl_guidance: >
+    Value pulled nightly from control_assessment table.
+  cis_controls: ["9", "7"]
+  more_info_url: "https://controls.riskradar.local/email-phishing"
+```
+
+**D. Ordinal KPI (Lower Rank = Better)**
+```yaml
+- name: Asset Risk Rating
+  description: Highest risk band assigned to an asset
+  category: Risk Classification
+  audience: Security Operations
+  metric_type: kpi
+  value_type: ordinal
+  enum_values: [none, low, medium, high, critical]
+  enum_direction_up: false          # first list item is best
+  measurement_function: max_enum
+  slo:
+    target: low
+    limit: medium
+    direction: down
+    unit: level
+    operator: "<="
+  dimensions:
+    default: [asset_category, time]
+    allowed: [business_group, asset_category, asset_subtype, asset_os, environment, time, risk_level]
+    required: [time]
+    groupable: [asset_category, asset_subtype, asset_os, environment]
+    filterable: [business_group, asset_category, asset_subtype, asset_os, environment, time, risk_level]
+  viewer_guidance: >
+    No asset should exceed 'low'. 'Medium' is acceptable only short-term.
+  impl_guidance: >
+    Asset daily roll-up in asset_risk_daily view.
+```
+
+**E. Chart Metric (No SLO)**
+```yaml
+- name: Findings by Risk Level
+  description: Current distribution of open findings by risk bucket
+  category: Risk Exposure
+  audience: Security Operations
+  metric_type: chart
+  measurement_function: distribution
+  dimensions:
+    default: [risk_level, vulnerability_severity]
+    allowed: [business_group, asset_category, vulnerability_severity, finding_status, scanner_vendor, environment, time, risk_level]
+    groupable: [risk_level, vulnerability_severity, asset_category, finding_status, scanner_vendor]
+    filterable: [business_group, asset_category, vulnerability_severity, finding_status, scanner_vendor, environment, time]
+  cis_controls: ["7"]
+  impl_guidance: >
+    Query returns {risk_level, count}; frontend draws stacked bar.
+```
+
+#### Metric Value Calculation Examples
+
+**Numeric Snapshot Calculation:**
+```sql
+-- SLA Compliance Percentage
+INSERT INTO metric_values (metric_id, numeric_value, slo_status, meets_target, meets_limit, calculation_metadata)
+SELECT 
+    1 as metric_id,
+    ROUND((COUNT(*) FILTER (WHERE within_sla) * 100.0 / COUNT(*)), 2) as numeric_value,
+    CASE 
+        WHEN ROUND((COUNT(*) FILTER (WHERE within_sla) * 100.0 / COUNT(*)), 2) >= 95 THEN 'green'
+        WHEN ROUND((COUNT(*) FILTER (WHERE within_sla) * 100.0 / COUNT(*)), 2) >= 85 THEN 'amber'
+        ELSE 'red'
+    END as slo_status,
+    ROUND((COUNT(*) FILTER (WHERE within_sla) * 100.0 / COUNT(*)), 2) >= 95 as meets_target,
+    ROUND((COUNT(*) FILTER (WHERE within_sla) * 100.0 / COUNT(*)), 2) >= 85 as meets_limit,
+    jsonb_build_object(
+        'total_assets', COUNT(*),
+        'compliant_assets', COUNT(*) FILTER (WHERE within_sla),
+        'calculation_date', NOW()
+    ) as calculation_metadata
+FROM asset_sla_view;
+```
+
+**Trend Calculation:**
+```sql
+-- Vulnerability Trend (4-week percentage change)
+WITH current_period AS (
+    SELECT COUNT(*) as current_count 
+    FROM findings 
+    WHERE status = 'open' 
+    AND first_seen >= NOW() - INTERVAL '7 days'
+),
+previous_period AS (
+    SELECT COUNT(*) as previous_count 
+    FROM findings 
+    WHERE status = 'open' 
+    AND first_seen >= NOW() - INTERVAL '35 days' 
+    AND first_seen < NOW() - INTERVAL '28 days'
+)
+INSERT INTO metric_values (metric_id, numeric_value, previous_value, percentage_change, slo_status, meets_target, meets_limit)
+SELECT 
+    3 as metric_id,
+    c.current_count,
+    p.previous_count,
+    CASE 
+        WHEN p.previous_count > 0 THEN 
+            ROUND(((c.current_count - p.previous_count) * 100.0 / p.previous_count), 2)
+        ELSE 0 
+    END as percentage_change,
+    CASE 
+        WHEN ROUND(((c.current_count - p.previous_count) * 100.0 / p.previous_count), 2) <= -5 THEN 'green'
+        WHEN ROUND(((c.current_count - p.previous_count) * 100.0 / p.previous_count), 2) <= 0 THEN 'amber'
+        ELSE 'red'
+    END as slo_status,
+    ROUND(((c.current_count - p.previous_count) * 100.0 / p.previous_count), 2) <= -5 as meets_target,
+    ROUND(((c.current_count - p.previous_count) * 100.0 / p.previous_count), 2) <= 0 as meets_limit
+FROM current_period c, previous_period p;
+```
+
+**Ordinal Value Calculation:**
+```sql
+-- Asset Risk Rating (highest risk per asset)
+INSERT INTO metric_values (metric_id, ordinal_value, slo_status, meets_target, meets_limit)
+SELECT 
+    5 as metric_id,
+    CASE 
+        WHEN MAX(v.severity_level) >= 9 THEN 'critical'
+        WHEN MAX(v.severity_level) >= 7 THEN 'high'  
+        WHEN MAX(v.severity_level) >= 4 THEN 'medium'
+        WHEN MAX(v.severity_level) >= 1 THEN 'low'
+        ELSE 'none'
+    END as ordinal_value,
+    CASE 
+        WHEN MAX(v.severity_level) <= 3 THEN 'green'    -- "low" or "none"
+        WHEN MAX(v.severity_level) <= 6 THEN 'amber'    -- "medium"
+        ELSE 'red'                                       -- "high" or "critical"
+    END as slo_status,
+    MAX(v.severity_level) <= 3 as meets_target,         -- target: "low"
+    MAX(v.severity_level) <= 6 as meets_limit,          -- limit: "medium"
+    business_group_id
+FROM findings f
+JOIN vulnerabilities v ON f.vulnerability_id = v.vulnerability_id
+JOIN assets a ON f.asset_id = a.asset_id
+WHERE f.status = 'open'
+GROUP BY business_group_id;
+```
+
+#### API Endpoints for Metrics
+
+```typescript
+// Get all available metrics
+GET /api/v1/metrics/
+
+// Get specific metric definition
+GET /api/v1/metrics/{metric_id}
+
+// Get current metric values
+GET /api/v1/metrics/{metric_id}/values?period={timeframe}&group_by={dimension}
+
+// Get metric trend data
+GET /api/v1/metrics/{metric_id}/trend?period={timeframe}
+
+// Get SLO dashboard data
+GET /api/v1/metrics/slo-dashboard?audience={audience}&category={category}
+
+// Recalculate metric values
+POST /api/v1/metrics/{metric_id}/calculate
+```
+
+#### API Integration with Dimensions
+
+The dimension system integrates with metric API endpoints to provide flexible querying:
+
+```typescript
+// Get metric values with dimension filtering
+GET /api/v1/metrics/{metric_id}/values?
+  group_by=business_group,vulnerability_severity&
+  filter=asset_category:Host,environment:production&
+  period=last_30_days
+
+// Get available dimensions for a metric
+GET /api/v1/metrics/{metric_id}/dimensions
+
+// Response includes allowed dimensions and current values
+{
+  "default": ["business_group", "time"],
+  "allowed": ["business_group", "asset_category", "vulnerability_severity", "time"],
+  "current_values": {
+    "business_group": ["Finance", "IT", "Operations"],
+    "asset_category": ["Host", "Code Project", "Website"],
+    "vulnerability_severity": ["Critical", "High", "Medium", "Low"]
+  }
+}
+```
+
+This metrics framework provides comprehensive KPI tracking with flexible SLO management and configurable dimensions, supporting both executive reporting and operational monitoring needs across all relevant data dimensions.
+
 ### Schema Validation
 
 #### Multi-Scanner Support Validation

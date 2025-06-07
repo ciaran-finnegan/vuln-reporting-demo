@@ -158,4 +158,4 @@ def decode_jwt_info(token):
         print(f"❌ Could not decode token: {e}")
 
 if __name__ == "__main__":
-    test_user_status()
+    test_user_status() 
